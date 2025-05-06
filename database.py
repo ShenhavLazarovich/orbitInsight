@@ -7,16 +7,23 @@ import traceback
 # Import space_track module with error handling
 try:
     # Check if required dependencies are installed
-    import pandas
-    import sqlalchemy
     import sgp4
-    import space_track as st
     SPACE_TRACK_AVAILABLE = True
     print("Space-Track module and dependencies are available.")
 except ImportError as e:
     print(f"Space-Track module not available or has dependency issues: {e}")
     traceback.print_exc()
     SPACE_TRACK_AVAILABLE = False
+
+# Import space_track in a function to avoid circular imports
+def import_space_track():
+    try:
+        import space_track as st
+        return st
+    except ImportError as e:
+        print(f"Error importing space_track module: {e}")
+        traceback.print_exc()
+        return None
 
 def get_database_connection():
     """
@@ -92,8 +99,14 @@ def get_satellites(engine):
             if os.getenv("SPACETRACK_USERNAME") and os.getenv("SPACETRACK_PASSWORD"):
                 print("Fetching satellite data from Space-Track.org...")
                 
-                # Get satellite data from Space-Track
-                satellite_list, _ = st.get_satellite_data(limit=50)  # Get more satellites
+                # Import space_track module dynamically to avoid circular imports
+                st = import_space_track()
+                if not st:
+                    print("Failed to import space_track module")
+                    satellite_list = []
+                else:
+                    # Get satellite data from Space-Track
+                    satellite_list, _ = st.get_satellite_data(limit=50)  # Get more satellites
                 
                 # Process the results
                 if satellite_list:
@@ -274,6 +287,12 @@ def get_trajectory_data(engine, satellite_id, start_date, end_date, alert_types)
         ])
     
     try:
+        # Import space_track module dynamically
+        st = import_space_track()
+        if not st:
+            print("Failed to import space_track module")
+            return pd.DataFrame()
+        
         # Get trajectory data from Space-Track
         _, trajectory_df = st.get_satellite_data(
             satellite_ids=[satellite_id],
