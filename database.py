@@ -273,6 +273,47 @@ def get_space_track_data(engine, data_type, days_back=30, limit=100):
             df = client.get_decay_data(days_back=days_back, limit=limit)
         elif data_type == "conjunction":
             df = client.get_conjunction_data(days_back=days_back, limit=limit)
+            
+            # Add standardized column names for visualization if data was found
+            if not df.empty:
+                # Map common column names to our standardized ones for visualization
+                column_mapping = {
+                    # Time columns
+                    'TCA': 'CDM_TCA',
+                    'CLOSEST_APPROACH_TIME': 'CDM_TCA',
+                    'CONJUNCTION_TIME': 'CDM_TCA',
+                    
+                    # Distance columns
+                    'MIN_RNG': 'MISS_DISTANCE',
+                    'RANGE': 'MISS_DISTANCE',
+                    'MINIMUM_RANGE': 'MISS_DISTANCE',
+                    'CLOSE_APPROACH_DIST': 'MISS_DISTANCE',
+                    
+                    # Speed columns
+                    'REL_SPEED': 'RELATIVE_SPEED',
+                    'RELATIVE_VELOCITY': 'RELATIVE_SPEED',
+                    'V_REL': 'RELATIVE_SPEED',
+                    
+                    # Probability columns
+                    'COLLISION_PROBABILITY': 'PC',
+                    'PROB': 'PC',
+                    'PROBABILITY': 'PC',
+                    
+                    # Object columns
+                    'OBJECT': 'OBJECT_NAME',
+                    'PRIMARY_OBJECT': 'OBJECT_NAME',
+                    'OBJECT_DESIGNATOR': 'OBJECT_ID',
+                    'SAT_1_NAME': 'OBJECT_NAME',
+                    'SAT_2_NAME': 'OBJECT_2_NAME'
+                }
+                
+                # Apply mapping (only for columns that exist in the dataframe)
+                for orig_col, new_col in column_mapping.items():
+                    if orig_col in df.columns and new_col not in df.columns:
+                        df[new_col] = df[orig_col]
+                
+                # Print column names for debugging
+                print(f"Conjunction data columns after mapping: {df.columns.tolist()}")
         elif data_type == "boxscore":
             df = client.get_boxscore_data(limit=limit)
         else:

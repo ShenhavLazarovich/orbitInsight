@@ -99,6 +99,25 @@ def add_satellite_css():
         height: 150px;
     }
     
+    /* Table filter styles */
+    .filter-container {
+        background-color: #f0f2f6;
+        border-radius: 5px;
+        padding: 10px;
+        margin-bottom: 15px;
+    }
+    
+    .filter-title {
+        font-weight: bold;
+        color: #3e64ff;
+        margin-bottom: 5px;
+    }
+    
+    .filter-active {
+        border-left: 3px solid #3e64ff;
+        padding-left: 8px;
+    }
+    
     /* Space background styles */
     .space-background {
         position: absolute;
@@ -727,11 +746,137 @@ else:
                     if selected_countries:
                         data = data[data['COUNTRY'].isin(selected_countries)]
                 
-                # Display filtered data
+                # Add live filtering options for the dataframe
+                st.write("### Live Data Filtering")
+                with st.expander("Filter Data", expanded=False):
+                    # Create a container with custom styling
+                    st.markdown('<div class="filter-container">', unsafe_allow_html=True)
+                    
+                    # Add search functionality for each column
+                    filter_cols = st.columns(3)
+                    
+                    # Track if we have applied any filters
+                    filters_applied = False
+                    filtered_data = data.copy()
+                    
+                    with filter_cols[0]:
+                        # Text search filter for satellite name
+                        if 'SATNAME' in data.columns:
+                            name_filter = st.text_input("Filter by Satellite Name", 
+                                                      placeholder="e.g., ISS, STARLINK")
+                            if name_filter:
+                                filtered_data = filtered_data[filtered_data['SATNAME'].str.contains(name_filter, case=False, na=False)]
+                                filters_applied = True
+                                
+                    with filter_cols[1]:
+                        # Object type filter (dropdown)
+                        if 'OBJECT_TYPE' in data.columns:
+                            object_types = ['All'] + sorted(data['OBJECT_TYPE'].dropna().unique().tolist())
+                            selected_type = st.selectbox("Filter by Object Type", object_types)
+                            if selected_type != 'All':
+                                filtered_data = filtered_data[filtered_data['OBJECT_TYPE'] == selected_type]
+                                filters_applied = True
+                                
+                    with filter_cols[2]:
+                        # Country filter (dropdown)
+                        if 'COUNTRY' in data.columns:
+                            countries = ['All'] + sorted(data['COUNTRY'].dropna().unique().tolist())
+                            selected_country = st.selectbox("Filter by Country", countries)
+                            if selected_country != 'All':
+                                filtered_data = filtered_data[filtered_data['COUNTRY'] == selected_country]
+                                filters_applied = True
+                    
+                    # Add more specific filters in another row
+                    filter_cols2 = st.columns(3)
+                    
+                    with filter_cols2[0]:
+                        # Launch year range
+                        if 'LAUNCH_DATE' in data.columns or 'LAUNCH_YEAR' in data.columns:
+                            year_col = 'LAUNCH_YEAR' if 'LAUNCH_YEAR' in data.columns else 'LAUNCH_DATE'
+                            
+                            # Convert to numeric or extract year from date
+                            if year_col == 'LAUNCH_DATE':
+                                # Try to convert to datetime and extract year
+                                try:
+                                    years = pd.to_datetime(data[year_col], errors='coerce').dt.year.dropna().astype(int)
+                                except:
+                                    years = []
+                            else:
+                                # Direct numeric conversion
+                                years = pd.to_numeric(data[year_col], errors='coerce').dropna().astype(int)
+                            
+                            if len(years) > 0:
+                                min_year, max_year = int(min(years)), int(max(years))
+                                year_range = st.slider("Launch Year Range", min_year, max_year, (min_year, max_year))
+                                
+                                if year_range != (min_year, max_year):
+                                    if year_col == 'LAUNCH_DATE':
+                                        # Filter by year component of date
+                                        filtered_data = filtered_data[
+                                            pd.to_datetime(filtered_data[year_col], errors='coerce').dt.year.between(
+                                                year_range[0], year_range[1]
+                                            )
+                                        ]
+                                    else:
+                                        # Direct numeric comparison
+                                        filtered_data = filtered_data[
+                                            pd.to_numeric(filtered_data[year_col], errors='coerce').between(
+                                                year_range[0], year_range[1]
+                                            )
+                                        ]
+                                    filters_applied = True
+                    
+                    with filter_cols2[1]:
+                        # Orbital period range
+                        if 'PERIOD' in data.columns:
+                            try:
+                                periods = pd.to_numeric(data['PERIOD'], errors='coerce').dropna()
+                                if len(periods) > 0:
+                                    min_period, max_period = float(min(periods)), float(max(periods))
+                                    period_range = st.slider("Orbital Period (minutes)", 
+                                                           min_period, max_period, 
+                                                           (min_period, max_period),
+                                                           step=10.0)
+                                    
+                                    if period_range != (min_period, max_period):
+                                        filtered_data = filtered_data[
+                                            pd.to_numeric(filtered_data['PERIOD'], errors='coerce').between(
+                                                period_range[0], period_range[1]
+                                            )
+                                        ]
+                                        filters_applied = True
+                            except:
+                                pass
+                    
+                    with filter_cols2[2]:
+                        # Current objects only checkbox
+                        if 'CURRENT' in data.columns:
+                            current_only = st.checkbox("Show Current Objects Only")
+                            if current_only:
+                                filtered_data = filtered_data[filtered_data['CURRENT'] == 'Y']
+                                filters_applied = True
+                    
+                    # Filter stats and reset button
+                    cols = st.columns([3, 1])
+                    with cols[0]:
+                        if filters_applied:
+                            st.info(f"Showing {len(filtered_data)} of {len(data)} records ({len(filtered_data)/len(data):.1%})")
+                        else:
+                            st.info(f"No filters applied. Showing all {len(data)} records.")
+                            
+                    with cols[1]:
+                        if filters_applied and st.button("Reset Filters"):
+                            st.rerun()
+                            
+                    st.markdown('</div>', unsafe_allow_html=True)
+                
+                # Display the filtered data
+                display_data = filtered_data if filters_applied else data
+                
                 if selected_columns:
-                    st.dataframe(data[selected_columns], use_container_width=True)
+                    st.dataframe(display_data[selected_columns], use_container_width=True)
                 else:
-                    st.dataframe(data, use_container_width=True)
+                    st.dataframe(display_data, use_container_width=True)
                 
                 # Add field explanations in an expandable section
                 with st.expander("Satellite Catalog Fields Explanation"):
