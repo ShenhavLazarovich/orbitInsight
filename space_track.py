@@ -112,6 +112,124 @@ class SpaceTrackClient:
         except requests.exceptions.RequestException as e:
             print(f"Error fetching satellite catalog: {e}")
             return pd.DataFrame()
+            
+    def get_launch_sites(self, limit=100):
+        """
+        Get launch site information
+        
+        Args:
+            limit: Maximum number of results to return
+            
+        Returns:
+            Pandas DataFrame with launch site data
+        """
+        if not self.authenticated and not self.authenticate():
+            raise ConnectionError("Failed to authenticate with Space-Track.org")
+            
+        query_url = f"{self.BASE_URL}/basicspacedata/query/class/launch_site/format/json/orderby/SITE_CODE/limit/{limit}"
+            
+        try:
+            response = self.session.get(query_url)
+            response.raise_for_status()
+            data = response.json()
+            
+            # Convert to DataFrame
+            df = pd.DataFrame(data)
+            return df
+        except requests.exceptions.RequestException as e:
+            print(f"Error fetching launch site data: {e}")
+            return pd.DataFrame()
+    
+    def get_decay_data(self, days_back=30, limit=100):
+        """
+        Get decay data for objects that have re-entered Earth's atmosphere
+        
+        Args:
+            days_back: Number of days in the past to retrieve data for
+            limit: Maximum number of results to return
+            
+        Returns:
+            Pandas DataFrame with decay data
+        """
+        if not self.authenticated and not self.authenticate():
+            raise ConnectionError("Failed to authenticate with Space-Track.org")
+            
+        # Calculate date range
+        end_date = datetime.now().strftime("%Y-%m-%d")
+        start_date = (datetime.now() - timedelta(days=days_back)).strftime("%Y-%m-%d")
+        
+        query_url = f"{self.BASE_URL}/basicspacedata/query/class/decay/format/json/DECAY_DATE/>{start_date}/DECAY_DATE/<{end_date}/orderby/DECAY_DATE%20desc/limit/{limit}"
+            
+        try:
+            response = self.session.get(query_url)
+            response.raise_for_status()
+            data = response.json()
+            
+            # Convert to DataFrame
+            df = pd.DataFrame(data)
+            return df
+        except requests.exceptions.RequestException as e:
+            print(f"Error fetching decay data: {e}")
+            return pd.DataFrame()
+            
+    def get_conjunction_data(self, days_back=7, limit=100):
+        """
+        Get conjunction data messages (CDMs) for close approaches
+        
+        Args:
+            days_back: Number of days in the past to retrieve data for
+            limit: Maximum number of results to return
+            
+        Returns:
+            Pandas DataFrame with conjunction data
+        """
+        if not self.authenticated and not self.authenticate():
+            raise ConnectionError("Failed to authenticate with Space-Track.org")
+            
+        # Calculate date range
+        end_date = datetime.now().strftime("%Y-%m-%d")
+        start_date = (datetime.now() - timedelta(days=days_back)).strftime("%Y-%m-%d")
+        
+        query_url = f"{self.BASE_URL}/basicspacedata/query/class/cdm_public/format/json/CDM_TCA/>{start_date}/CDM_TCA/<{end_date}/orderby/CDM_TCA%20desc/limit/{limit}"
+            
+        try:
+            response = self.session.get(query_url)
+            response.raise_for_status()
+            data = response.json()
+            
+            # Convert to DataFrame
+            df = pd.DataFrame(data)
+            return df
+        except requests.exceptions.RequestException as e:
+            print(f"Error fetching conjunction data: {e}")
+            return pd.DataFrame()
+            
+    def get_boxscore_data(self, limit=100):
+        """
+        Get the boxscore data (statistics by country)
+        
+        Args:
+            limit: Maximum number of results to return
+            
+        Returns:
+            Pandas DataFrame with boxscore data
+        """
+        if not self.authenticated and not self.authenticate():
+            raise ConnectionError("Failed to authenticate with Space-Track.org")
+            
+        query_url = f"{self.BASE_URL}/basicspacedata/query/class/boxscore/format/json/orderby/COUNTRY/limit/{limit}"
+            
+        try:
+            response = self.session.get(query_url)
+            response.raise_for_status()
+            data = response.json()
+            
+            # Convert to DataFrame
+            df = pd.DataFrame(data)
+            return df
+        except requests.exceptions.RequestException as e:
+            print(f"Error fetching boxscore data: {e}")
+            return pd.DataFrame()
     
     def get_satellite_positions(self, tle_data, time_start, time_end, time_step_minutes=10):
         """

@@ -232,6 +232,63 @@ def get_satellites(engine):
     print(f"Returning {len(satellites_dict)} satellites")
     return satellites_dict
 
+def get_space_track_data(engine, data_type, days_back=30, limit=100):
+    """
+    Get data from Space-Track API for a specific data type.
+    
+    Args:
+        engine: SQLAlchemy database engine
+        data_type: Type of data to retrieve (e.g., "catalog", "launch_sites", "decay", "conjunction", "boxscore")
+        days_back: Number of days in the past to retrieve data for (for time-based queries)
+        limit: Maximum number of results to return
+        
+    Returns:
+        Pandas DataFrame with the requested data
+    """
+    if not SPACE_TRACK_AVAILABLE:
+        print("Space-Track module is not available.")
+        return pd.DataFrame()
+    
+    # Check if we have Space-Track credentials
+    if not (os.getenv("SPACETRACK_USERNAME") and os.getenv("SPACETRACK_PASSWORD")):
+        print("Space-Track credentials not found. Please set SPACETRACK_USERNAME and SPACETRACK_PASSWORD")
+        return pd.DataFrame()
+    
+    # Import space_track module dynamically to avoid circular imports
+    st = import_space_track()
+    if not st:
+        print("Failed to import space_track module")
+        return pd.DataFrame()
+    
+    try:
+        # Initialize Space-Track client
+        client = st.SpaceTrackClient()
+        
+        # Get data based on the requested type
+        if data_type == "catalog":
+            df = client.get_satellite_catalog(limit=limit)
+        elif data_type == "launch_sites":
+            df = client.get_launch_sites(limit=limit)
+        elif data_type == "decay":
+            df = client.get_decay_data(days_back=days_back, limit=limit)
+        elif data_type == "conjunction":
+            df = client.get_conjunction_data(days_back=days_back, limit=limit)
+        elif data_type == "boxscore":
+            df = client.get_boxscore_data(limit=limit)
+        else:
+            print(f"Unknown data type: {data_type}")
+            return pd.DataFrame()
+        
+        # Close the client connection
+        client.close()
+        
+        return df
+    
+    except Exception as e:
+        print(f"Error fetching data from Space-Track API: {e}")
+        traceback.print_exc()
+        return pd.DataFrame()
+
 def get_alert_types(engine):
     """
     Get list of available alert types from the database.
