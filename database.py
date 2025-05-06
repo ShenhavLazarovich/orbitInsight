@@ -47,9 +47,9 @@ def get_satellites(engine):
         engine: SQLAlchemy database engine
         
     Returns:
-        List of satellite IDs
+        Dictionary of satellite information with {id: name} pairs
     """
-    satellites = []
+    satellites_dict = {}
     
     # First try to get satellites from the local database
     try:
@@ -64,16 +64,24 @@ def get_satellites(engine):
             result = conn.execute(query)
             db_satellites = [row[0] for row in result]
             
-        # Add database satellites to our list
+        # Add database satellites to our dictionary
         if db_satellites:
             print(f"Found {len(db_satellites)} satellites in database: {db_satellites}")
-            satellites.extend(db_satellites)
+            for sat_id in db_satellites:
+                # For database satellites without names, use the ID as the name
+                satellites_dict[sat_id] = f"Database Satellite {sat_id}"
                 
     except Exception as e:
         print(f"Error querying local database: {e}")
     
-    # Add default well-known NORAD IDs (these will be removed if duplicates later)
-    default_satellites = ["25544", "20580", "41866", "39084", "25994"]  # ISS, Hubble, GOES-16, Landsat-8, Terra
+    # Add default well-known satellites with their names
+    default_satellites = {
+        "25544": "ISS (International Space Station)",
+        "20580": "Hubble Space Telescope",
+        "41866": "GOES-16 (Geostationary Operational Environmental Satellite)",
+        "39084": "Landsat-8 (Earth Observation Satellite)",
+        "25994": "Terra (Earth Observing System Flagship)"
+    }
     
     # Also get satellites from Space-Track API regardless if we found some in the database
     if SPACE_TRACK_AVAILABLE:
@@ -85,36 +93,33 @@ def get_satellites(engine):
                 # Get satellite data from Space-Track
                 satellite_list, _ = st.get_satellite_data(limit=20)
                 
-                # Extract just the IDs
+                # Extract IDs and names
                 if satellite_list:
-                    space_track_ids = [sat['id'] for sat in satellite_list]
-                    print(f"Found {len(space_track_ids)} satellites from Space-Track: {space_track_ids}")
-                    satellites.extend(space_track_ids)
+                    print(f"Found {len(satellite_list)} satellites from Space-Track API")
+                    for sat in satellite_list:
+                        if 'id' in sat and 'name' in sat:
+                            satellites_dict[sat['id']] = sat['name']
                 else:
                     print("No satellites found from Space-Track API")
+                    # Add default satellites if Space-Track returns empty list
+                    satellites_dict.update(default_satellites)
                 
         except Exception as e:
             print(f"Error fetching from Space-Track API: {e}")
             traceback.print_exc()
             # Add default satellites if Space-Track fails
-            satellites.extend(default_satellites)
+            satellites_dict.update(default_satellites)
     else:
         print("Space-Track module is not available, using default satellite list")
-        satellites.extend(default_satellites)
-    
-    # Remove duplicates while preserving order
-    unique_satellites = []
-    for sat in satellites:
-        if sat not in unique_satellites:
-            unique_satellites.append(sat)
+        satellites_dict.update(default_satellites)
     
     # If we still have no satellites, use the default list
-    if not unique_satellites:
+    if not satellites_dict:
         print("No satellites found, using default list")
-        unique_satellites = default_satellites
+        satellites_dict = default_satellites
         
-    print(f"Returning {len(unique_satellites)} satellites")
-    return unique_satellites
+    print(f"Returning {len(satellites_dict)} satellites")
+    return satellites_dict
 
 def get_alert_types(engine):
     """

@@ -46,10 +46,10 @@ st.sidebar.header("Data Filters")
 # Connect to database
 try:
     engine = db.get_database_connection()
-    # Get available satellites
-    satellites = db.get_satellites(engine)
+    # Get available satellites with names
+    satellites_dict = db.get_satellites(engine)
     
-    if not satellites:
+    if not satellites_dict:
         st.warning("No satellite data found. Make sure Space-Track.org credentials are set.")
         st.stop()
         
@@ -63,12 +63,23 @@ if has_space_track_credentials:
 else:
     st.sidebar.info("Using locally cached satellite data")
 
+# Format satellite names for display
+satellite_options = [f"{name} (ID: {sat_id})" for sat_id, name in satellites_dict.items()]
+id_to_display_name = {sat_id: f"{name} (ID: {sat_id})" for sat_id, name in satellites_dict.items()}
+display_name_to_id = {f"{name} (ID: {sat_id})": sat_id for sat_id, name in satellites_dict.items()}
+
 # Satellite selection
-selected_satellite = st.sidebar.selectbox(
-    "Select Satellite ID",
-    options=satellites,
+selected_satellite_display = st.sidebar.selectbox(
+    "Select Satellite",
+    options=satellite_options,
     help="Choose a satellite to view its trajectory data"
 )
+
+# Extract the actual satellite ID from the selection
+selected_satellite = display_name_to_id[selected_satellite_display]
+
+# Store the display name for later use
+st.session_state['selected_satellite_name'] = selected_satellite_display
 
 # Time period selection
 st.sidebar.subheader("Time Period")
@@ -138,7 +149,9 @@ if 'trajectory_data' in st.session_state:
     satellite_id = st.session_state['satellite_id']
     
     # Display satellite name if available
-    if 'satellite_name' in st.session_state:
+    if 'selected_satellite_name' in st.session_state:
+        st.subheader(f"Satellite: {st.session_state['selected_satellite_name']}")
+    elif 'satellite_name' in st.session_state:
         st.subheader(f"Satellite: {st.session_state['satellite_name']} (ID: {satellite_id})")
     
     # Create tabs for different views
