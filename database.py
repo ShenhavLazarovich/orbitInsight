@@ -6,10 +6,16 @@ import traceback
 
 # Import space_track module with error handling
 try:
+    # Check if required dependencies are installed
+    import pandas
+    import sqlalchemy
+    import sgp4
     import space_track as st
     SPACE_TRACK_AVAILABLE = True
-except ImportError:
-    print("Space-Track module not available or has dependency issues.")
+    print("Space-Track module and dependencies are available.")
+except ImportError as e:
+    print(f"Space-Track module not available or has dependency issues: {e}")
+    traceback.print_exc()
     SPACE_TRACK_AVAILABLE = False
 
 def get_database_connection():
