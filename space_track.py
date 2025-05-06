@@ -149,48 +149,100 @@ class SpaceTrackClient:
         trajectory_data = []
         
         for _, sat_row in tle_data.iterrows():
-            # Extract TLE lines
+            # Default values in case of errors
+            satellite_id = "Unknown"
+            satellite_name = "Unknown"
+            
             try:
-                satellite_id = sat_row['NORAD_CAT_ID']
-                satellite_name = sat_row['OBJECT_NAME']
-                line1 = sat_row['TLE_LINE1']
-                line2 = sat_row['TLE_LINE2']
+                # Safely extract TLE lines
+                satellite_id = str(sat_row.get('NORAD_CAT_ID', "Unknown"))
+                satellite_name = str(sat_row.get('OBJECT_NAME', f"Satellite {satellite_id}"))
                 
-                # Create satellite object from TLE
-                satellite = twoline2rv(line1, line2, wgs72)
+                # Make sure we have the required TLE lines
+                if 'TLE_LINE1' not in sat_row or 'TLE_LINE2' not in sat_row:
+                    print(f"Missing TLE data for satellite {satellite_id}")
+                    continue
+                    
+                line1 = str(sat_row['TLE_LINE1'])
+                line2 = str(sat_row['TLE_LINE2'])
+                
+                # Validate TLE lines
+                if not line1 or not line2 or len(line1) < 10 or len(line2) < 10:
+                    print(f"Invalid TLE data for satellite {satellite_id}")
+                    continue
+                
+                # Create satellite object from TLE with proper error handling
+                try:
+                    satellite = twoline2rv(line1, line2, wgs72)
+                except Exception as tle_error:
+                    print(f"Error creating satellite object for {satellite_id}: {tle_error}")
+                    continue
                 
                 # Calculate position at each time step
+                trajectories_added = 0
                 for timestamp in time_range:
-                    # Convert to SGP4 format time (minutes since epoch)
-                    year, month, day, hour, minute, second = timestamp.year, timestamp.month, timestamp.day, timestamp.hour, timestamp.minute, timestamp.second
-                    
-                    # Get position and velocity
-                    position, velocity = satellite.propagate(
-                        year, month, day, hour, minute, second
-                    )
-                    
-                    if position[0] is not None and not any(pd.isna(position)):
-                        # Extract components
-                        x, y, z = position
-                        vx, vy, vz = velocity
+                    try:
+                        # Convert to SGP4 format time
+                        year = timestamp.year
+                        month = timestamp.month
+                        day = timestamp.day
+                        hour = timestamp.hour
+                        minute = timestamp.minute
+                        second = timestamp.second
                         
-                        # Calculate altitude (distance from Earth center - Earth radius)
-                        # Earth radius is approximately 6371 km
-                        altitude = (x**2 + y**2 + z**2)**0.5 - 6371
+                        # Get position and velocity
+                        position, velocity = satellite.propagate(
+                            year, month, day, hour, minute, second
+                        )
                         
-                        # Add data point to results
-                        trajectory_data.append({
-                            'satellite_id': satellite_id,
-                            'object_name': satellite_name,
-                            'timestamp': timestamp,
-                            'x': x * 1000,  # Convert from km to m
-                            'y': y * 1000,
-                            'z': z * 1000,
-                            'velocity_x': vx * 1000,  # Convert from km/s to m/s
-                            'velocity_y': vy * 1000,
-                            'velocity_z': vz * 1000,
-                            'altitude': altitude * 1000  # Convert from km to m
-                        })
+                        # Skip invalid positions
+                        if (position is None or position[0] is None or 
+                            any(pd.isna(p) for p in position) or 
+                            any(isinstance(p, bool) for p in position)):
+                            continue
+                        
+                        # Extract components with safety checks
+                        try:
+                            x, y, z = position
+                            vx, vy, vz = velocity
+                            
+                            # Make sure we got numeric values
+                            if not (isinstance(x, (int, float)) and
+                                   isinstance(y, (int, float)) and
+                                   isinstance(z, (int, float))):
+                                continue
+                            
+                            # Calculate altitude (distance from Earth center - Earth radius)
+                            # Earth radius is approximately 6371 km
+                            altitude = (x**2 + y**2 + z**2)**0.5 - 6371
+                            
+                            # Add data point to results
+                            trajectory_data.append({
+                                'satellite_id': satellite_id,
+                                'object_name': satellite_name,
+                                'timestamp': timestamp,
+                                'x': x * 1000,  # Convert from km to m
+                                'y': y * 1000,
+                                'z': z * 1000,
+                                'velocity_x': vx * 1000,  # Convert from km/s to m/s
+                                'velocity_y': vy * 1000,
+                                'velocity_z': vz * 1000,
+                                'altitude': altitude * 1000  # Convert from km to m
+                            })
+                            trajectories_added += 1
+                        except Exception as pos_error:
+                            # Skip this position if we can't process it
+                            continue
+                    except Exception as time_error:
+                        # Skip this timestamp if propagation fails
+                        continue
+                
+                # Log the number of trajectory points we were able to add
+                if trajectories_added > 0:
+                    print(f"Added {trajectories_added} trajectory points for satellite {satellite_id}")
+                else:
+                    print(f"No valid trajectory points generated for satellite {satellite_id}")
+                    
             except Exception as e:
                 print(f"Error processing satellite {satellite_id}: {e}")
                 continue
@@ -283,13 +335,32 @@ def get_satellite_data(satellite_ids=None, start_date=None, end_date=None, limit
         
         # Create list of available satellites for selection
         available_satellites = []
-        for sat_id in trajectory_df['satellite_id'].unique():
-            sat_name = trajectory_df[trajectory_df['satellite_id'] == sat_id]['object_name'].iloc[0]
-            available_satellites.append({
-                'id': sat_id,
-                'name': sat_name
-            })
+        
+        # Check if trajectory_df is empty or missing required columns
+        if trajectory_df.empty or 'satellite_id' not in trajectory_df.columns or 'object_name' not in trajectory_df.columns:
+            print("No trajectory data available to extract satellite information")
             
+            # If we have satellite_ids, at least return those
+            if satellite_ids:
+                for sat_id in satellite_ids:
+                    available_satellites.append({
+                        'id': str(sat_id),
+                        'name': f"Satellite {sat_id}"
+                    })
+        else:
+            # Extract satellite information from trajectory data
+            try:
+                for sat_id in trajectory_df['satellite_id'].unique():
+                    sat_df = trajectory_df[trajectory_df['satellite_id'] == sat_id]
+                    if not sat_df.empty and 'object_name' in sat_df.columns:
+                        sat_name = sat_df['object_name'].iloc[0]
+                        available_satellites.append({
+                            'id': sat_id,
+                            'name': sat_name
+                        })
+            except Exception as e:
+                print(f"Error extracting satellite information: {e}")
+                
         return available_satellites, trajectory_df
         
     except Exception as e:
