@@ -51,136 +51,147 @@ if not has_space_track_credentials:
 # Sidebar for filters and controls
 st.sidebar.header("Data Filters")
 
-# Connect to database
+# Connect to database (needed for all data categories)
 try:
     engine = db.get_database_connection()
-    # Get available satellites with names
-    satellites_dict = db.get_satellites(engine)
-    
-    if not satellites_dict:
-        st.warning("No satellite data found. Make sure Space-Track.org credentials are set.")
-        st.stop()
-        
 except Exception as e:
     st.error(f"Error connecting to database: {str(e)}")
     st.stop()
 
-# Display source of the data
-if has_space_track_credentials:
-    st.sidebar.success("Using real-time data from Space-Track.org")
+# Only show satellite filters for Trajectories category
+if data_category != "Trajectories":
+    # For other data categories, the filters are handled within each category's section
+    pass
 else:
-    st.sidebar.info("Using locally cached satellite data")
+    # Show the satellite trajectory filters
+    try:
+        # Get available satellites with names
+        satellites_dict = db.get_satellites(engine)
+        
+        if not satellites_dict:
+            st.warning("No satellite data found. Make sure Space-Track.org credentials are set.")
+            st.stop()
+            
+    except Exception as e:
+        st.error(f"Error retrieving satellite data: {str(e)}")
+        st.stop()
 
-# Format satellite names for display
-satellite_options = [f"{name} (ID: {sat_id})" for sat_id, name in satellites_dict.items()]
-id_to_display_name = {sat_id: f"{name} (ID: {sat_id})" for sat_id, name in satellites_dict.items()}
-display_name_to_id = {f"{name} (ID: {sat_id})": sat_id for sat_id, name in satellites_dict.items()}
+    # Display source of the data
+    if has_space_track_credentials:
+        st.sidebar.success("Using real-time data from Space-Track.org")
+    else:
+        st.sidebar.info("Using locally cached satellite data")
 
-# Satellite selection
-selected_satellite_display = st.sidebar.selectbox(
-    "Select Satellite",
-    options=satellite_options,
-    help="Choose a satellite to view its trajectory data"
-)
+    # Format satellite names for display
+    satellite_options = [f"{name} (ID: {sat_id})" for sat_id, name in satellites_dict.items()]
+    id_to_display_name = {sat_id: f"{name} (ID: {sat_id})" for sat_id, name in satellites_dict.items()}
+    display_name_to_id = {f"{name} (ID: {sat_id})": sat_id for sat_id, name in satellites_dict.items()}
 
-# Extract the actual satellite ID from the selection
-selected_satellite = display_name_to_id[selected_satellite_display]
+    # Satellite selection
+    selected_satellite_display = st.sidebar.selectbox(
+        "Select Satellite",
+        options=satellite_options,
+        help="Choose a satellite to view its trajectory data"
+    )
 
-# Store the display name for later use
-st.session_state['selected_satellite_name'] = selected_satellite_display
+    # Extract the actual satellite ID from the selection
+    selected_satellite = display_name_to_id[selected_satellite_display]
 
-# Time period selection
-st.sidebar.subheader("Time Period")
-today = datetime.now()
+    # Store the display name for later use
+    st.session_state['selected_satellite_name'] = selected_satellite_display
 
-# Set appropriate date ranges based on satellite selection
-# Extract launch date if available in satellite name
-launch_date_match = None
-if "selected_satellite_name" in st.session_state:
-    satellite_name = st.session_state["selected_satellite_name"]
-    if "Launched:" in satellite_name:
-        try:
-            launch_str = satellite_name.split("Launched:")[1].strip()
-            launch_date_str = launch_str.strip("() ")
-            launch_date_match = pd.to_datetime(launch_date_str)
-        except:
-            pass
+    # Time period selection
+    st.sidebar.subheader("Time Period")
+    today = datetime.now()
 
-# Set default dates based on selected satellite
-if launch_date_match:
-    # If we have a launch date, suggest a period after launch
-    # If it's an old satellite, just show last week
-    if (today - launch_date_match).days > 30:
+    # Set appropriate date ranges based on satellite selection
+    # Extract launch date if available in satellite name
+    launch_date_match = None
+    if "selected_satellite_name" in st.session_state:
+        satellite_name = st.session_state["selected_satellite_name"]
+        if "Launched:" in satellite_name:
+            try:
+                launch_str = satellite_name.split("Launched:")[1].strip()
+                launch_date_str = launch_str.strip("() ")
+                launch_date_match = pd.to_datetime(launch_date_str)
+            except:
+                pass
+
+    # Set default dates based on selected satellite
+    if launch_date_match:
+        # If we have a launch date, suggest a period after launch
+        # If it's an old satellite, just show last week
+        if (today - launch_date_match).days > 30:
+            default_start_date = today - timedelta(days=7)
+            date_suggestion = "Showing data for the past week"
+        else:
+            # For recently launched satellites, show from launch date
+            default_start_date = launch_date_match
+            date_suggestion = f"Showing data since launch date: {launch_date_match.strftime('%Y-%m-%d')}"
+    else:
+        # Default to last week if no launch date available
         default_start_date = today - timedelta(days=7)
         date_suggestion = "Showing data for the past week"
-    else:
-        # For recently launched satellites, show from launch date
-        default_start_date = launch_date_match
-        date_suggestion = f"Showing data since launch date: {launch_date_match.strftime('%Y-%m-%d')}"
-else:
-    # Default to last week if no launch date available
-    default_start_date = today - timedelta(days=7)
-    date_suggestion = "Showing data for the past week"
 
-# Display date suggestion
-st.sidebar.info(date_suggestion)
+    # Display date suggestion
+    st.sidebar.info(date_suggestion)
 
-start_date = st.sidebar.date_input(
-    "Start Date",
-    value=default_start_date,
-    help="Select start date for data filtering"
-)
+    start_date = st.sidebar.date_input(
+        "Start Date",
+        value=default_start_date,
+        help="Select start date for data filtering"
+    )
 
-end_date = st.sidebar.date_input(
-    "End Date",
-    value=today,
-    help="Select end date for data filtering"
-)
+    end_date = st.sidebar.date_input(
+        "End Date",
+        value=today,
+        help="Select end date for data filtering"
+    )
 
-# Alert type filter
-alert_types = db.get_alert_types(engine)
-selected_alert_types = st.sidebar.multiselect(
-    "Alert Types",
-    options=alert_types,
-    default=alert_types,
-    help="Select alert types to include"
-)
+    # Alert type filter
+    alert_types = db.get_alert_types(engine)
+    selected_alert_types = st.sidebar.multiselect(
+        "Alert Types",
+        options=alert_types,
+        default=alert_types,
+        help="Select alert types to include"
+    )
 
-# Load data button
-if st.sidebar.button("Load Data"):
-    # Show loading spinner
-    with st.spinner("Loading trajectory data..."):
-        try:
-            # Get data from database or Space-Track
-            df = db.get_trajectory_data(
-                engine, 
-                selected_satellite, 
-                start_date, 
-                end_date, 
-                selected_alert_types
-            )
-            
-            if df.empty:
-                if has_space_track_credentials:
-                    st.warning(f"No data found for satellite {selected_satellite} in the selected date range. Try a different satellite or date range.")
-                else:
-                    st.warning("No data found. Please enter Space-Track.org credentials to access real satellite data.")
-                st.stop()
+    # Load data button
+    if st.sidebar.button("Load Data"):
+        # Show loading spinner
+        with st.spinner("Loading trajectory data..."):
+            try:
+                # Get data from database or Space-Track
+                df = db.get_trajectory_data(
+                    engine, 
+                    selected_satellite, 
+                    start_date, 
+                    end_date, 
+                    selected_alert_types
+                )
                 
-            # Store the data in session state for reuse
-            st.session_state['trajectory_data'] = df
-            st.session_state['satellite_id'] = selected_satellite
-            
-            # Add satellite name to session state if available
-            if 'satellite_name' in df.columns:
-                satellite_name = df['satellite_name'].iloc[0]
-                st.session_state['satellite_name'] = satellite_name
-            
-        except Exception as e:
-            st.error(f"Error retrieving data: {str(e)}")
-            st.stop()
-    
-    st.success(f"Loaded {len(df)} trajectory points for satellite {selected_satellite}")
+                if df.empty:
+                    if has_space_track_credentials:
+                        st.warning(f"No data found for satellite {selected_satellite} in the selected date range. Try a different satellite or date range.")
+                    else:
+                        st.warning("No data found. Please enter Space-Track.org credentials to access real satellite data.")
+                    st.stop()
+                    
+                # Store the data in session state for reuse
+                st.session_state['trajectory_data'] = df
+                st.session_state['satellite_id'] = selected_satellite
+                
+                # Add satellite name to session state if available
+                if 'satellite_name' in df.columns:
+                    satellite_name = df['satellite_name'].iloc[0]
+                    st.session_state['satellite_name'] = satellite_name
+                
+            except Exception as e:
+                st.error(f"Error retrieving data: {str(e)}")
+                st.stop()
+        
+        st.success(f"Loaded {len(df)} trajectory points for satellite {selected_satellite}")
 
 # Display data and visualizations if data is loaded
 if 'trajectory_data' in st.session_state:
@@ -219,12 +230,29 @@ if 'trajectory_data' in st.session_state:
         
         # Add download button
         csv = utils.convert_df_to_csv(df)
-        st.download_button(
-            label="Download data as CSV",
-            data=csv,
-            file_name=f"satellite_{satellite_id}_trajectory_{start_date}_{end_date}.csv",
-            mime="text/csv",
-        )
+        # Get start and end dates from the data itself if not defined in current scope
+        try:
+            if 'timestamp' in df.columns:
+                data_start_date = pd.to_datetime(df['timestamp'].min()).strftime("%Y-%m-%d")
+                data_end_date = pd.to_datetime(df['timestamp'].max()).strftime("%Y-%m-%d")
+            else:
+                data_start_date = "unknown_start"
+                data_end_date = "unknown_end"
+            
+            st.download_button(
+                label="Download data as CSV",
+                data=csv,
+                file_name=f"satellite_{satellite_id}_trajectory_{data_start_date}_{data_end_date}.csv",
+                mime="text/csv",
+            )
+        except:
+            # Fallback without dates if there's an error
+            st.download_button(
+                label="Download data as CSV",
+                data=csv,
+                file_name=f"satellite_{satellite_id}_trajectory.csv",
+                mime="text/csv",
+            )
     
     with tab2:
         st.subheader("Trajectory Visualizations")
