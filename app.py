@@ -1215,8 +1215,211 @@ else:
                 if data.empty:
                     st.warning("The conjunction data returned is empty. Try a different data category.")
                 else:
-                    # Display raw data first to ensure something is visible even if processing fails
-                    st.dataframe(data, use_container_width=True)
+                    # Add live filtering options for conjunction data
+                    st.write("### Live Conjunction Data Filtering")
+                    with st.expander("Filter Conjunction Data", expanded=False):
+                        # Create a container with custom styling
+                        st.markdown('<div class="filter-container">', unsafe_allow_html=True)
+                        
+                        # Add search functionality for each column
+                        filter_cols = st.columns(3)
+                        
+                        # Track if we have applied any filters
+                        filters_applied = False
+                        filtered_data = data.copy()
+                        
+                        with filter_cols[0]:
+                            # Filter by object name
+                            obj_name_cols = [col for col in data.columns if any(x in col.upper() for x in ['OBJECT', 'NAME', 'SAT_1'])]
+                            if obj_name_cols:
+                                obj_name_col = obj_name_cols[0]
+                                name_filter = st.text_input("Filter by Primary Object", 
+                                                            placeholder="e.g., ISS, COSMOS")
+                                if name_filter and obj_name_col in data.columns:
+                                    try:
+                                        filtered_data = filtered_data[filtered_data[obj_name_col].astype(str).str.contains(name_filter, case=False, na=False)]
+                                        filters_applied = True
+                                    except:
+                                        st.warning(f"Could not filter by {obj_name_col}")
+                            
+                        with filter_cols[1]:
+                            # Filter by secondary object
+                            obj2_name_cols = [col for col in data.columns if any(x in col.upper() for x in ['OBJECT_2', 'SAT_2', 'SECOND'])]
+                            if obj2_name_cols:
+                                obj2_name_col = obj2_name_cols[0]
+                                name2_filter = st.text_input("Filter by Secondary Object", 
+                                                            placeholder="e.g., DEBRIS, STARLINK")
+                                if name2_filter and obj2_name_col in data.columns:
+                                    try:
+                                        filtered_data = filtered_data[filtered_data[obj2_name_col].astype(str).str.contains(name2_filter, case=False, na=False)]
+                                        filters_applied = True
+                                    except:
+                                        st.warning(f"Could not filter by {obj2_name_col}")
+                        
+                        with filter_cols[2]:
+                            # Date range filter
+                            date_cols = [col for col in data.columns if any(x in col.upper() for x in ['DATE', 'TIME', 'TCA'])]
+                            if date_cols:
+                                date_col = date_cols[0]
+                                
+                                try:
+                                    # Try to convert to datetime
+                                    date_series = pd.to_datetime(data[date_col], errors='coerce')
+                                    valid_dates = date_series.dropna()
+                                    
+                                    if not valid_dates.empty:
+                                        date_min = valid_dates.min().date()
+                                        date_max = valid_dates.max().date()
+                                        
+                                        date_range = st.date_input(
+                                            "Date Range",
+                                            value=(date_min, date_max),
+                                            min_value=date_min,
+                                            max_value=date_max
+                                        )
+                                        
+                                        if len(date_range) == 2:
+                                            start_date, end_date = date_range
+                                            if start_date != date_min or end_date != date_max:
+                                                filtered_data = filtered_data[
+                                                    (pd.to_datetime(filtered_data[date_col], errors='coerce').dt.date >= start_date) & 
+                                                    (pd.to_datetime(filtered_data[date_col], errors='coerce').dt.date <= end_date)
+                                                ]
+                                                filters_applied = True
+                                except Exception as e:
+                                    st.warning(f"Could not process dates in {date_col} column: {e}")
+                        
+                        # Add risk-based filters
+                        filter_cols2 = st.columns(3)
+                        
+                        with filter_cols2[0]:
+                            # Miss distance filter
+                            miss_dist_cols = [col for col in data.columns if any(term in col.upper() for term in ['MISS', 'DIST', 'RANGE', 'RNG'])]
+                            if miss_dist_cols:
+                                miss_dist_col = miss_dist_cols[0]
+                                
+                                try:
+                                    miss_dist_vals = pd.to_numeric(data[miss_dist_col], errors='coerce').dropna()
+                                    if not miss_dist_vals.empty:
+                                        min_dist = float(miss_dist_vals.min())
+                                        max_dist = float(miss_dist_vals.max())
+                                        
+                                        miss_dist_range = st.slider(
+                                            "Miss Distance (km)",
+                                            min_value=min_dist,
+                                            max_value=max_dist,
+                                            value=(min_dist, max_dist),
+                                            step=max(0.001, (max_dist-min_dist)/100)
+                                        )
+                                        
+                                        if miss_dist_range != (min_dist, max_dist):
+                                            filtered_data = filtered_data[
+                                                pd.to_numeric(filtered_data[miss_dist_col], errors='coerce').between(
+                                                    miss_dist_range[0], miss_dist_range[1]
+                                                )
+                                            ]
+                                            filters_applied = True
+                                except Exception as e:
+                                    st.warning(f"Could not filter by miss distance: {e}")
+                        
+                        with filter_cols2[1]:
+                            # Probability filter (if available)
+                            prob_cols = [col for col in data.columns if any(term in col.upper() for term in ['PC', 'PROB', 'COLLISION'])]
+                            if prob_cols:
+                                prob_col = prob_cols[0]
+                                
+                                try:
+                                    prob_vals = pd.to_numeric(data[prob_col], errors='coerce').dropna()
+                                    if not prob_vals.empty:
+                                        min_prob = float(prob_vals.min())
+                                        max_prob = float(prob_vals.max())
+                                        
+                                        # Use scientific notation for very small values
+                                        if min_prob < 0.00001:
+                                            min_prob_disp = f"{min_prob:.2e}"
+                                        else:
+                                            min_prob_disp = f"{min_prob:.6f}"
+                                            
+                                        if max_prob < 0.00001:
+                                            max_prob_disp = f"{max_prob:.2e}"
+                                        else:
+                                            max_prob_disp = f"{max_prob:.6f}"
+                                        
+                                        st.markdown(f"Collision Probability Range:  \n{min_prob_disp} to {max_prob_disp}")
+                                        
+                                        # Use log slider for better usability with small probability values
+                                        import numpy as np
+                                        log_min = np.log10(max(min_prob, 1e-10))
+                                        log_max = np.log10(max(max_prob, 1e-9))
+                                        
+                                        log_range = st.slider(
+                                            "Collision Probability (log scale)",
+                                            min_value=log_min,
+                                            max_value=log_max,
+                                            value=(log_min, log_max),
+                                            step=0.1
+                                        )
+                                        
+                                        # Convert back from log scale
+                                        prob_range = (10**log_range[0], 10**log_range[1])
+                                        
+                                        if prob_range != (min_prob, max_prob):
+                                            filtered_data = filtered_data[
+                                                pd.to_numeric(filtered_data[prob_col], errors='coerce').between(
+                                                    prob_range[0], prob_range[1]
+                                                )
+                                            ]
+                                            filters_applied = True
+                                except Exception as e:
+                                    st.warning(f"Could not filter by probability: {e}")
+                        
+                        with filter_cols2[2]:
+                            # Relative velocity filter
+                            vel_cols = [col for col in data.columns if any(term in col.upper() for term in ['SPEED', 'VEL', 'V_REL'])]
+                            if vel_cols:
+                                vel_col = vel_cols[0]
+                                
+                                try:
+                                    vel_vals = pd.to_numeric(data[vel_col], errors='coerce').dropna()
+                                    if not vel_vals.empty:
+                                        min_vel = float(vel_vals.min())
+                                        max_vel = float(vel_vals.max())
+                                        
+                                        vel_range = st.slider(
+                                            "Relative Velocity (km/s)",
+                                            min_value=min_vel,
+                                            max_value=max_vel,
+                                            value=(min_vel, max_vel),
+                                            step=max(0.1, (max_vel-min_vel)/100)
+                                        )
+                                        
+                                        if vel_range != (min_vel, max_vel):
+                                            filtered_data = filtered_data[
+                                                pd.to_numeric(filtered_data[vel_col], errors='coerce').between(
+                                                    vel_range[0], vel_range[1]
+                                                )
+                                            ]
+                                            filters_applied = True
+                                except Exception as e:
+                                    st.warning(f"Could not filter by velocity: {e}")
+                        
+                        # Filter stats and reset button
+                        cols = st.columns([3, 1])
+                        with cols[0]:
+                            if filters_applied:
+                                st.info(f"Showing {len(filtered_data)} of {len(data)} conjunction events ({len(filtered_data)/len(data):.1%})")
+                            else:
+                                st.info(f"No filters applied. Showing all {len(data)} conjunction events.")
+                                
+                        with cols[1]:
+                            if filters_applied and st.button("Reset Filters", key="reset_conj"):
+                                st.rerun()
+                                
+                        st.markdown('</div>', unsafe_allow_html=True)
+                    
+                    # Display the filtered data
+                    display_data = filtered_data if filters_applied else data
+                    st.dataframe(display_data, use_container_width=True)
                     
                     # Add field explanations in an expandable section
                     with st.expander("Conjunction Data Fields Explanation"):
