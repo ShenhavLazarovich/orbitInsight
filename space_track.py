@@ -204,50 +204,80 @@ class SpaceTrackClient:
         end_date = datetime.now().strftime("%Y-%m-%d")
         start_date = (datetime.now() - timedelta(days=days_back)).strftime("%Y-%m-%d")
         
-        # First try the current API path
-        try:
-            query_url = f"{self.BASE_URL}/basicspacedata/query/class/cdm_public/format/json/CDM_TCA/>{start_date}/CDM_TCA/<{end_date}/orderby/CDM_TCA%20desc/limit/{limit}"
-            response = self.session.get(query_url)
-            response.raise_for_status()
-            data = response.json()
-            
-            # Convert to DataFrame
-            df = pd.DataFrame(data)
-            return df
-        except requests.exceptions.RequestException as e:
-            print(f"Error fetching conjunction data using cdm_public: {e}")
-            
-            # Try alternative API path (cdm)
+        # Endpoints to try, in order of preference
+        endpoints = [
+            # Standard name variations
+            "cdm_public",
+            "cdm",
+            "gp_cdm",
+            # Additional variations of the same endpoint
+            "cdm-public",
+            "cdmpublic", 
+            "cdmspublic",
+            # Try different category/database combinations
+            "gp/cdm",
+            "gp/cdm_public",
+            "conjunction_data",
+            "conjunction",
+            # Try other possible names the API might use
+            "close_approaches",
+            "close-approach"
+        ]
+        
+        # Try all possible endpoints
+        for endpoint in endpoints:
             try:
-                print("Trying alternative conjunction data endpoint...")
-                query_url = f"{self.BASE_URL}/basicspacedata/query/class/cdm/format/json/CDM_TCA/>{start_date}/CDM_TCA/<{end_date}/orderby/CDM_TCA%20desc/limit/{limit}"
+                print(f"Trying conjunction endpoint: {endpoint}")
+                # Handle different endpoint formats with slashes or underscores
+                if "/" in endpoint:
+                    category, class_name = endpoint.split("/")
+                    query_url = f"{self.BASE_URL}/{category}/query/class/{class_name}/format/json/CDM_TCA/>{start_date}/CDM_TCA/<{end_date}/orderby/CDM_TCA%20desc/limit/{limit}"
+                else:
+                    query_url = f"{self.BASE_URL}/basicspacedata/query/class/{endpoint}/format/json/CDM_TCA/>{start_date}/CDM_TCA/<{end_date}/orderby/CDM_TCA%20desc/limit/{limit}"
+                
+                # Add debug info
+                print(f"Requesting URL: {query_url}")
+                
+                # Make the request
                 response = self.session.get(query_url)
                 response.raise_for_status()
                 data = response.json()
                 
-                # Convert to DataFrame
-                df = pd.DataFrame(data)
-                return df
-            except requests.exceptions.RequestException as e_alt:
-                print(f"Error fetching conjunction data using alternative path: {e_alt}")
+                # If we get here, the request was successful
+                print(f"Successfully retrieved data from endpoint: {endpoint}")
                 
-                # Try another alternative (gp_cdm)
-                try:
-                    print("Trying gp_cdm conjunction data endpoint...")
-                    query_url = f"{self.BASE_URL}/basicspacedata/query/class/gp_cdm/format/json/CDM_TCA/>{start_date}/CDM_TCA/<{end_date}/orderby/CDM_TCA%20desc/limit/{limit}"
-                    response = self.session.get(query_url)
-                    response.raise_for_status()
-                    data = response.json()
-                    
-                    # Convert to DataFrame
+                # Validate that we received actual data
+                if isinstance(data, list) and len(data) > 0:
                     df = pd.DataFrame(data)
-                    return df
-                except requests.exceptions.RequestException as e_gp:
-                    print(f"Error fetching conjunction data using gp_cdm path: {e_gp}")
                     
-                    # If all attempts fail, return a placeholder DataFrame with expected structure
-                    print("Conjunction data endpoints not available. Please check Space-Track API access.")
-                    return pd.DataFrame()
+                    # Additional check to ensure the DataFrame has the expected structure
+                    # Must contain at least one key field related to conjunction data
+                    required_fields = ['CDM_TCA', 'MISS_DISTANCE', 'PC', 'CREATED', 'TCA']
+                    if any(field in df.columns for field in required_fields):
+                        return df
+                    else:
+                        print(f"Data received from {endpoint} does not appear to be conjunction data")
+                elif isinstance(data, dict) and data.get('data') and isinstance(data['data'], list):
+                    # Some API endpoints wrap data in a 'data' key
+                    df = pd.DataFrame(data['data'])
+                    
+                    # Same validation as above
+                    required_fields = ['CDM_TCA', 'MISS_DISTANCE', 'PC', 'CREATED', 'TCA']
+                    if any(field in df.columns for field in required_fields):
+                        return df
+                    else:
+                        print(f"Data received from {endpoint} does not appear to be conjunction data")
+                else:
+                    print(f"Endpoint {endpoint} returned empty data or unexpected format")
+                
+            except requests.exceptions.RequestException as e:
+                print(f"Error fetching conjunction data using {endpoint}: {e}")
+                # Continue to the next endpoint
+        
+        # If all attempts fail, inform the user
+        print("All conjunction data endpoints failed. Please check Space-Track API access permissions.")
+        print("This may be due to API changes or your account not having access to conjunction data.")
+        return pd.DataFrame()
             
     def get_boxscore_data(self, limit=100):
         """

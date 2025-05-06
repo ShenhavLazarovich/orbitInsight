@@ -602,19 +602,55 @@ else:
             if st.sidebar.button("Load Conjunction Data"):
                 with st.spinner("Loading conjunction data..."):
                     try:
+                        # Display info about multiple endpoint attempts
+                        status_container = st.empty()
+                        status_container.info("Attempting to connect to Space-Track.org conjunction data. This may take a moment as we try multiple API endpoints...")
+                        
+                        # Get the data
                         data = db.get_space_track_data(engine, "conjunction", days_back=days_back, limit=limit)
+                        
+                        # Update status based on result
                         if not data.empty:
+                            status_container.success("Successfully retrieved conjunction data!")
                             st.session_state['conjunction_data'] = data
                         else:
-                            st.warning("No conjunction data found. This could be due to Space-Track API changes or access restrictions.")
+                            status_container.warning("No conjunction data found. The application tried multiple API endpoints, but none returned data.")
+                            st.expander("Troubleshooting Information", expanded=True).markdown("""
+                            ### Possible Reasons for Missing Conjunction Data
+                            1. **API Access Permissions**: Your Space-Track.org account may not have access to conjunction data
+                            2. **API Changes**: Space-Track has recently restructured their API endpoints
+                            3. **No Recent Conjunctions**: There may be no conjunction events in the selected time period
+                            
+                            ### Solutions
+                            - Try selecting a different data category from the sidebar
+                            - Ensure you have the correct Space-Track.org credentials with appropriate access levels
+                            - Contact Space-Track.org support to request access to conjunction data endpoints
+                            """)
                             if not has_space_track_credentials:
                                 st.info("Space-Track.org credentials are required to access this data.")
                             else:
                                 st.info("Try refreshing or selecting a different data category.")
                     except Exception as e:
                         st.error(f"Error retrieving conjunction data: {str(e)}")
-                        if "basicspacedata_cdm_public" in str(e):
-                            st.warning("The Space-Track API endpoint for conjunction data appears to have changed. The application has been updated to try alternative endpoints, but this data category may not be accessible with your current Space-Track.org permissions.")
+                        if "basicspacedata_cdm_public" in str(e) or "NOT EXIST FOR TABLE" in str(e):
+                            st.warning("The Space-Track API endpoint structure has changed. The application will try multiple alternative endpoints automatically.")
+                            # Try once more with the enhanced fallback system
+                            try:
+                                status_container = st.empty()
+                                status_container.info("Retrying with advanced fallback system...")
+                                
+                                # Get the data with enhanced fallbacks
+                                data = db.get_space_track_data(engine, "conjunction", days_back=days_back, limit=limit)
+                                
+                                if not data.empty:
+                                    status_container.success("Successfully retrieved conjunction data with fallback system!")
+                                    st.session_state['conjunction_data'] = data
+                                else:
+                                    status_container.warning("All fallback attempts failed to retrieve conjunction data.")
+                            except Exception as retry_error:
+                                st.error(f"Fallback system also failed: {str(retry_error)}")
+                        
+                        st.expander("Technical Details", expanded=False).code(str(e))
                         st.info("Please try a different data category or contact Space-Track.org support for more information about conjunction data access.")
             
             if 'conjunction_data' in st.session_state:
