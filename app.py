@@ -606,11 +606,16 @@ else:
                         if not data.empty:
                             st.session_state['conjunction_data'] = data
                         else:
-                            st.warning("No conjunction data found. Make sure Space-Track.org credentials are valid.")
+                            st.warning("No conjunction data found. This could be due to Space-Track API changes or access restrictions.")
                             if not has_space_track_credentials:
                                 st.info("Space-Track.org credentials are required to access this data.")
+                            else:
+                                st.info("Try refreshing or selecting a different data category.")
                     except Exception as e:
                         st.error(f"Error retrieving conjunction data: {str(e)}")
+                        if "basicspacedata_cdm_public" in str(e):
+                            st.warning("The Space-Track API endpoint for conjunction data appears to have changed. The application has been updated to try alternative endpoints, but this data category may not be accessible with your current Space-Track.org permissions.")
+                        st.info("Please try a different data category or contact Space-Track.org support for more information about conjunction data access.")
             
             if 'conjunction_data' in st.session_state:
                 st.subheader("Conjunction Data Messages (Close Approaches)")
@@ -618,57 +623,112 @@ else:
                 # Display the data
                 data = st.session_state['conjunction_data']
                 
-                # Format the data for better display
-                if 'CDM_TCA' in data.columns:
-                    # Try to convert to datetime for better sorting
-                    try:
-                        data['CDM_TCA'] = pd.to_datetime(data['CDM_TCA'], errors='coerce')
-                    except:
-                        pass
+                # Check if we have enough data for meaningful analysis
+                if data.empty:
+                    st.warning("The conjunction data returned is empty. Try a different data category.")
+                else:
+                    # Display raw data first to ensure something is visible even if processing fails
+                    st.dataframe(data, use_container_width=True)
                 
-                # Filter conjunction data by minimum probability if available
-                if 'PC' in data.columns:  # Probability of Collision
-                    try:
-                        data['PC'] = pd.to_numeric(data['PC'], errors='coerce')
-                        min_prob = st.slider(
-                            "Minimum Collision Probability", 
-                            min_value=0.0, 
-                            max_value=float(data['PC'].max() if not data['PC'].isna().all() else 1.0),
-                            value=0.0,
-                            step=0.0001
-                        )
-                        data = data[data['PC'] >= min_prob]
-                    except:
-                        st.warning("Could not process collision probability data.")
-                
-                st.dataframe(data, use_container_width=True)
-                
-                # Visualizations for conjunction data
-                st.subheader("Conjunction Analysis")
-                
-                # Miss distance histogram if available
-                if 'MISS_DISTANCE' in data.columns:
-                    try:
-                        data['MISS_DISTANCE'] = pd.to_numeric(data['MISS_DISTANCE'], errors='coerce')
-                        if not data['MISS_DISTANCE'].isna().all():
-                            fig = px.histogram(
-                                data,
-                                x='MISS_DISTANCE',
-                                title='Distribution of Miss Distances',
-                                labels={'MISS_DISTANCE': 'Miss Distance (km)'}
+                try:
+                    # Format the data for better display
+                    if 'CDM_TCA' in data.columns:
+                        # Try to convert to datetime for better sorting
+                        try:
+                            data['CDM_TCA'] = pd.to_datetime(data['CDM_TCA'], errors='coerce')
+                        except Exception as dt_error:
+                            st.warning(f"Could not convert time data: {dt_error}")
+                    
+                    # Filter conjunction data by minimum probability if available
+                    if 'PC' in data.columns:  # Probability of Collision
+                        try:
+                            data['PC'] = pd.to_numeric(data['PC'], errors='coerce')
+                            max_pc = float(data['PC'].max() if not data['PC'].isna().all() else 1.0)
+                            min_prob = st.slider(
+                                "Minimum Collision Probability", 
+                                min_value=0.0, 
+                                max_value=max_pc,
+                                value=0.0,
+                                step=0.0001
                             )
-                            st.plotly_chart(fig, use_container_width=True)
-                    except:
-                        st.warning("Could not process miss distance data for visualization.")
+                            data = data[data['PC'] >= min_prob]
+                        except Exception as pc_error:
+                            st.warning(f"Could not process collision probability data: {pc_error}")
+                    
+                    # Visualizations for conjunction data
+                    st.subheader("Conjunction Analysis")
+                    
+                    # Miss distance histogram if available
+                    if 'MISS_DISTANCE' in data.columns:
+                        try:
+                            data['MISS_DISTANCE'] = pd.to_numeric(data['MISS_DISTANCE'], errors='coerce')
+                            if not data['MISS_DISTANCE'].isna().all():
+                                fig = px.histogram(
+                                    data,
+                                    x='MISS_DISTANCE',
+                                    title='Distribution of Miss Distances',
+                                    labels={'MISS_DISTANCE': 'Miss Distance (km)'}
+                                )
+                                st.plotly_chart(fig, use_container_width=True)
+                            else:
+                                st.warning("No valid miss distance data found for visualization.")
+                        except Exception as viz_error:
+                            st.warning(f"Could not process miss distance data for visualization: {viz_error}")
+                    else:
+                        st.info("Miss distance data not available in the API response. This may be due to API changes.")
+                    
+                    # Time-based analysis if we have date information
+                    if 'CDM_TCA' in data.columns and not data['CDM_TCA'].isna().all():
+                        try:
+                            st.subheader("Conjunction Events Timeline")
+                            # Check for key fields that may have different names in different API versions
+                            miss_dist_field = None
+                            for field in ['MISS_DISTANCE', 'MINIMUM_RANGE', 'RANGE']:
+                                if field in data.columns:
+                                    miss_dist_field = field
+                                    break
+                                    
+                            if miss_dist_field:
+                                # Convert to numeric for plotting
+                                data[miss_dist_field] = pd.to_numeric(data[miss_dist_field], errors='coerce')
+                                
+                                # Prepare hover data with whatever fields are available
+                                hover_fields = []
+                                for field in ['OBJECT', 'OBJECT_NAME', 'OBJECT_DESIGNATOR', 
+                                           'OBJECT_2_NAME', 'OBJECT_2_DESIGNATOR', 'RELATIVE_SPEED']:
+                                    if field in data.columns:
+                                        hover_fields.append(field)
+                                
+                                # Plot timeline
+                                fig = px.scatter(
+                                    data, 
+                                    x='CDM_TCA', 
+                                    y=miss_dist_field,
+                                    hover_data=hover_fields,
+                                    title='Conjunction Events Over Time'
+                                )
+                                fig.update_layout(yaxis_title=f"{miss_dist_field} (km)", xaxis_title="Time of Closest Approach")
+                                st.plotly_chart(fig, use_container_width=True)
+                            else:
+                                st.warning("Could not find miss distance field in the data for timeline visualization.")
+                        except Exception as timeline_error:
+                            st.warning(f"Could not create timeline visualization: {timeline_error}")
+                    
+                except Exception as analysis_error:
+                    st.error(f"Error during conjunction data analysis: {analysis_error}")
+                    st.info("The data structure from Space-Track may have changed. You can still view and download the raw data above.")
                 
-                # Allow CSV download
-                csv = utils.convert_df_to_csv(data)
-                st.download_button(
-                    label="Download conjunction data as CSV",
-                    data=csv,
-                    file_name="conjunction_data.csv",
-                    mime="text/csv",
-                )
+                # Allow CSV download - should always work
+                try:
+                    csv = utils.convert_df_to_csv(data)
+                    st.download_button(
+                        label="Download conjunction data as CSV",
+                        data=csv,
+                        file_name="conjunction_data.csv",
+                        mime="text/csv",
+                    )
+                except Exception as csv_error:
+                    st.error(f"Error creating CSV download: {csv_error}")
             
             else:
                 st.info("Click 'Load Conjunction Data' to view close approach information")
@@ -681,73 +741,148 @@ else:
                         if not data.empty:
                             st.session_state['boxscore_data'] = data
                         else:
-                            st.warning("No boxscore data found. Make sure Space-Track.org credentials are valid.")
+                            st.warning("No boxscore data found. This could be due to Space-Track API changes or access restrictions.")
                             if not has_space_track_credentials:
                                 st.info("Space-Track.org credentials are required to access this data.")
+                            else:
+                                st.info("Try refreshing or selecting a different data category.")
                     except Exception as e:
                         st.error(f"Error retrieving boxscore data: {str(e)}")
+                        st.info("Please try a different data category or contact Space-Track.org support if the issue persists.")
             
             if 'boxscore_data' in st.session_state:
                 st.subheader("Space Objects Statistics by Country")
                 
                 # Display the data
                 data = st.session_state['boxscore_data']
-                st.dataframe(data, use_container_width=True)
                 
-                # Create visualizations
-                st.subheader("Comparative Analysis")
+                # Check if we have any data
+                if data.empty:
+                    st.warning("The boxscore data returned is empty. Try a different data category.")
+                else:
+                    # Display raw data first to ensure something is visible
+                    st.dataframe(data, use_container_width=True)
                 
-                # Objects by country
-                if 'COUNTRY' in data.columns and 'SPADOC_CD' in data.columns:
-                    try:
-                        # Extract top countries by total objects
-                        top_n = st.slider("Number of countries to show", 3, 20, 10)
+                try:
+                    # Check required columns exist
+                    country_col = None
+                    for col in ['COUNTRY', 'COUNTRY_OWNER', 'NATION']:
+                        if col in data.columns:
+                            country_col = col
+                            break
+                    
+                    # Check if we have country information
+                    if not country_col:
+                        st.warning("Could not find country information in the data for visualization.")
+                    else:
+                        # Create visualizations
+                        st.subheader("Comparative Analysis")
                         
-                        # Convert count columns to numeric
-                        count_columns = ['PAYLOAD_COUNT', 'PAYLOAD_DETAIL_COUNT', 'ROCKET_BODY_COUNT', 'DEBRIS_COUNT', 'TOTAL_COUNT']
-                        for col in count_columns:
+                        # Convert any count columns to numeric
+                        count_columns = []
+                        for col in data.columns:
+                            if any(term in col.upper() for term in ['COUNT', 'TOTAL', 'NUM']):
+                                try:
+                                    data[col] = pd.to_numeric(data[col], errors='coerce')
+                                    count_columns.append(col)
+                                except:
+                                    pass
+                        
+                        # Find suitable total count column
+                        total_count_col = None
+                        for col in ['TOTAL_COUNT', 'TOTAL', 'PAYLOAD_COUNT']:
                             if col in data.columns:
-                                data[col] = pd.to_numeric(data[col], errors='coerce')
+                                total_count_col = col
+                                break
                         
-                        if 'TOTAL_COUNT' in data.columns:
-                            top_countries = data.nlargest(top_n, 'TOTAL_COUNT')
+                        if total_count_col:
+                            # Extract top countries by total objects
+                            top_n = st.slider("Number of countries to show", 3, 20, 10)
+                            top_countries = data.nlargest(top_n, total_count_col)
                             
-                            # Melt the data for grouped bar chart
-                            plot_columns = [col for col in ['COUNTRY', 'PAYLOAD_COUNT', 'ROCKET_BODY_COUNT', 'DEBRIS_COUNT'] if col in top_countries.columns]
+                            # Find columns suitable for stacked/grouped visualization
+                            plot_columns = [col for col in count_columns if col != total_count_col]
                             
-                            if len(plot_columns) > 1:
-                                melted = top_countries[plot_columns].melt(
-                                    id_vars=['COUNTRY'],
-                                    var_name='Object Type',
-                                    value_name='Count'
-                                )
+                            if plot_columns and len(plot_columns) > 0:
+                                # Create plot columns list with country column first
+                                all_plot_cols = [country_col] + plot_columns
                                 
-                                # Create a grouped bar chart
+                                # Check if we have enough data for a meaningful plot
+                                if len(top_countries) > 0 and all(col in top_countries.columns for col in all_plot_cols):
+                                    try:
+                                        # Melt the data for grouped bar chart
+                                        melted = top_countries[all_plot_cols].melt(
+                                            id_vars=[country_col],
+                                            var_name='Object Type',
+                                            value_name='Count'
+                                        )
+                                        
+                                        # Create a grouped bar chart
+                                        fig = px.bar(
+                                            melted,
+                                            x=country_col,
+                                            y='Count',
+                                            color='Object Type',
+                                            title=f'Top {top_n} Countries by Space Object Count',
+                                            labels={country_col: 'Country', 'Count': 'Number of Objects'},
+                                            barmode='group'
+                                        )
+                                        st.plotly_chart(fig, use_container_width=True)
+                                    except Exception as plot_error:
+                                        st.warning(f"Error creating grouped bar chart: {plot_error}")
+                            
+                            # Always try to create a simple visualization of total counts
+                            try:
+                                # Create a simple bar chart of top countries by total count
+                                simple_fig = px.bar(
+                                    top_countries,
+                                    x=country_col,
+                                    y=total_count_col,
+                                    title=f'Top {top_n} Countries by Total Space Objects',
+                                    color=total_count_col,
+                                    color_continuous_scale='viridis'
+                                )
+                                st.plotly_chart(simple_fig, use_container_width=True)
+                            except Exception as simple_plot_error:
+                                st.warning(f"Error creating simple bar chart: {simple_plot_error}")
+                        else:  # No total_count_col found
+                            # If we don't have a good total count column but we have the country column
+                            # Create a simple count by country
+                            try:
+                                country_counts = data[country_col].value_counts().reset_index()
+                                country_counts.columns = ['Country', 'Count']
+                                country_counts = country_counts.head(10)
+                                
                                 fig = px.bar(
-                                    melted,
-                                    x='COUNTRY',
+                                    country_counts,
+                                    x='Country',
                                     y='Count',
-                                    color='Object Type',
-                                    title=f'Top {top_n} Countries by Space Object Count',
-                                    labels={'COUNTRY': 'Country', 'Count': 'Number of Objects'},
-                                    barmode='group'
+                                    title='Top 10 Countries by Object Count',
+                                    color='Count',
+                                    color_continuous_scale='viridis'
                                 )
                                 st.plotly_chart(fig, use_container_width=True)
-                            else:
-                                st.warning("Insufficient data for comparative visualization.")
-                        else:
-                            st.warning("Total count data not available for visualization.")
-                    except Exception as e:
-                        st.error(f"Error creating visualization: {str(e)}")
+                            except Exception as fallback_error:
+                                st.warning(f"Could not create fallback visualization: {fallback_error}")
+                                st.info("The data structure may not be suitable for visualization.")
+                
+                except Exception as viz_error:
+                    st.error(f"Error during boxscore data visualization: {viz_error}")
+                    st.info("The data structure from Space-Track may have changed. You can still view and download the raw data above.")
                 
                 # Allow CSV download
-                csv = utils.convert_df_to_csv(data)
-                st.download_button(
-                    label="Download boxscore data as CSV",
-                    data=csv,
-                    file_name="space_objects_by_country.csv",
-                    mime="text/csv",
-                )
+                try:
+                    csv = utils.convert_df_to_csv(data)
+                    st.download_button(
+                        label="Download boxscore data as CSV",
+                        data=csv,
+                        file_name="space_objects_by_country.csv",
+                        mime="text/csv",
+                    )
+                except Exception as csv_error:
+                    st.error(f"Error creating CSV download: {csv_error}")
+                    
+            
             
             else:
                 st.info("Click 'Load Boxscore Data' to view statistics by country")

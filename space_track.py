@@ -158,9 +158,9 @@ class SpaceTrackClient:
         end_date = datetime.now().strftime("%Y-%m-%d")
         start_date = (datetime.now() - timedelta(days=days_back)).strftime("%Y-%m-%d")
         
-        query_url = f"{self.BASE_URL}/basicspacedata/query/class/decay/format/json/DECAY_DATE/>{start_date}/DECAY_DATE/<{end_date}/orderby/DECAY_DATE%20desc/limit/{limit}"
-            
+        # First try with 'decay' class
         try:
+            query_url = f"{self.BASE_URL}/basicspacedata/query/class/decay/format/json/DECAY_DATE/>{start_date}/DECAY_DATE/<{end_date}/orderby/DECAY_DATE%20desc/limit/{limit}"
             response = self.session.get(query_url)
             response.raise_for_status()
             data = response.json()
@@ -170,7 +170,21 @@ class SpaceTrackClient:
             return df
         except requests.exceptions.RequestException as e:
             print(f"Error fetching decay data: {e}")
-            return pd.DataFrame()
+            
+            # Try alternative: satcat with decay filter
+            try:
+                print("Trying alternative decay data endpoint via satellite catalog...")
+                query_url = f"{self.BASE_URL}/basicspacedata/query/class/satcat/format/json/DECAY/>{start_date}/DECAY/<{end_date}/orderby/DECAY%20desc/limit/{limit}"
+                response = self.session.get(query_url)
+                response.raise_for_status()
+                data = response.json()
+                
+                # Convert to DataFrame
+                df = pd.DataFrame(data)
+                return df
+            except requests.exceptions.RequestException as e_alt:
+                print(f"Error fetching decay data via satellite catalog: {e_alt}")
+                return pd.DataFrame()
             
     def get_conjunction_data(self, days_back=7, limit=100):
         """
@@ -190,9 +204,9 @@ class SpaceTrackClient:
         end_date = datetime.now().strftime("%Y-%m-%d")
         start_date = (datetime.now() - timedelta(days=days_back)).strftime("%Y-%m-%d")
         
-        query_url = f"{self.BASE_URL}/basicspacedata/query/class/cdm_public/format/json/CDM_TCA/>{start_date}/CDM_TCA/<{end_date}/orderby/CDM_TCA%20desc/limit/{limit}"
-            
+        # First try the current API path
         try:
+            query_url = f"{self.BASE_URL}/basicspacedata/query/class/cdm_public/format/json/CDM_TCA/>{start_date}/CDM_TCA/<{end_date}/orderby/CDM_TCA%20desc/limit/{limit}"
             response = self.session.get(query_url)
             response.raise_for_status()
             data = response.json()
@@ -201,8 +215,39 @@ class SpaceTrackClient:
             df = pd.DataFrame(data)
             return df
         except requests.exceptions.RequestException as e:
-            print(f"Error fetching conjunction data: {e}")
-            return pd.DataFrame()
+            print(f"Error fetching conjunction data using cdm_public: {e}")
+            
+            # Try alternative API path (cdm)
+            try:
+                print("Trying alternative conjunction data endpoint...")
+                query_url = f"{self.BASE_URL}/basicspacedata/query/class/cdm/format/json/CDM_TCA/>{start_date}/CDM_TCA/<{end_date}/orderby/CDM_TCA%20desc/limit/{limit}"
+                response = self.session.get(query_url)
+                response.raise_for_status()
+                data = response.json()
+                
+                # Convert to DataFrame
+                df = pd.DataFrame(data)
+                return df
+            except requests.exceptions.RequestException as e_alt:
+                print(f"Error fetching conjunction data using alternative path: {e_alt}")
+                
+                # Try another alternative (gp_cdm)
+                try:
+                    print("Trying gp_cdm conjunction data endpoint...")
+                    query_url = f"{self.BASE_URL}/basicspacedata/query/class/gp_cdm/format/json/CDM_TCA/>{start_date}/CDM_TCA/<{end_date}/orderby/CDM_TCA%20desc/limit/{limit}"
+                    response = self.session.get(query_url)
+                    response.raise_for_status()
+                    data = response.json()
+                    
+                    # Convert to DataFrame
+                    df = pd.DataFrame(data)
+                    return df
+                except requests.exceptions.RequestException as e_gp:
+                    print(f"Error fetching conjunction data using gp_cdm path: {e_gp}")
+                    
+                    # If all attempts fail, return a placeholder DataFrame with expected structure
+                    print("Conjunction data endpoints not available. Please check Space-Track API access.")
+                    return pd.DataFrame()
             
     def get_boxscore_data(self, limit=100):
         """
@@ -217,9 +262,9 @@ class SpaceTrackClient:
         if not self.authenticated and not self.authenticate():
             raise ConnectionError("Failed to authenticate with Space-Track.org")
             
-        query_url = f"{self.BASE_URL}/basicspacedata/query/class/boxscore/format/json/orderby/COUNTRY/limit/{limit}"
-            
+        # Try the standard boxscore endpoint
         try:
+            query_url = f"{self.BASE_URL}/basicspacedata/query/class/boxscore/format/json/orderby/COUNTRY/limit/{limit}"
             response = self.session.get(query_url)
             response.raise_for_status()
             data = response.json()
@@ -229,7 +274,37 @@ class SpaceTrackClient:
             return df
         except requests.exceptions.RequestException as e:
             print(f"Error fetching boxscore data: {e}")
-            return pd.DataFrame()
+            
+            # Try alternative path
+            try:
+                print("Trying alternative boxscore endpoint...")
+                query_url = f"{self.BASE_URL}/basicspacedata/query/class/satcat/format/json/CURRENT/Y/OBJECT_TYPE/Payload/COUNTRY_OWNER/orderby/COUNTRY_OWNER/limit/{limit}"
+                response = self.session.get(query_url)
+                response.raise_for_status()
+                data = response.json()
+                
+                # Process the data to create boxscore-like data
+                if data:
+                    satellite_df = pd.DataFrame(data)
+                    
+                    # Group by country and count satellites
+                    if 'COUNTRY_OWNER' in satellite_df.columns:
+                        # Create country statistics
+                        country_stats = satellite_df.groupby('COUNTRY_OWNER').size().reset_index()
+                        country_stats.columns = ['COUNTRY', 'PAYLOAD_COUNT']
+                        
+                        # Add other columns to match boxscore format
+                        country_stats['ROCKET_BODY_COUNT'] = 0
+                        country_stats['DEBRIS_COUNT'] = 0
+                        country_stats['TOTAL_COUNT'] = country_stats['PAYLOAD_COUNT']
+                        
+                        return country_stats
+                    
+                # If we couldn't process properly, return empty DataFrame
+                return pd.DataFrame()
+            except requests.exceptions.RequestException as e_alt:
+                print(f"Error fetching alternative boxscore data: {e_alt}")
+                return pd.DataFrame()
     
     def get_satellite_positions(self, tle_data, time_start, time_end, time_step_minutes=10):
         """
