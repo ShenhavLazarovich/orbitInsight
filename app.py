@@ -733,6 +733,30 @@ else:
                 else:
                     st.dataframe(data, use_container_width=True)
                 
+                # Add field explanations in an expandable section
+                with st.expander("Satellite Catalog Fields Explanation"):
+                    st.markdown("""
+                    | Field | Description |
+                    | --- | --- |
+                    | NORAD_CAT_ID | The unique identifier assigned by NORAD (North American Aerospace Defense Command) |
+                    | SATNAME | Official name of the satellite |
+                    | OBJECT_TYPE | Classification of the object (Payload, Rocket Body, Debris, etc.) |
+                    | COUNTRY | Country or organization responsible for the satellite |
+                    | LAUNCH_DATE | Date when the satellite was launched |
+                    | SITE | Launch site location |
+                    | DECAY_DATE | Date when the satellite re-entered Earth's atmosphere (if applicable) |
+                    | PERIOD | Orbital period in minutes (time to complete one orbit) |
+                    | INCLINATION | Orbital inclination in degrees (angle between orbital plane and equator) |
+                    | APOGEE | Highest altitude of the satellite in kilometers |
+                    | PERIGEE | Lowest altitude of the satellite in kilometers |
+                    | RCS | Radar Cross Section - measure of how detectable the object is by radar |
+                    | LAUNCH_YEAR | Year of launch |
+                    | LAUNCH_NUM | Launch number for that year |
+                    | LAUNCH_PIECE | Letter designating piece of launch (A=primary payload) |
+                    | CURRENT | Indicates if the object is still in orbit (Y/N) |
+                    | OBJECT_ID | International designator in format YYYY-NNNLPP (year, launch number, piece) |
+                    """)
+                
                 # Statistics about the catalog
                 st.subheader("Satellite Statistics")
                 col1, col2 = st.columns(2)
@@ -785,6 +809,25 @@ else:
                 # Display the data
                 data = st.session_state['launch_sites_data']
                 st.dataframe(data, use_container_width=True)
+                
+                # Add field explanations in an expandable section
+                with st.expander("Launch Sites Fields Explanation"):
+                    st.markdown("""
+                    | Field | Description |
+                    | --- | --- |
+                    | SITE_CODE | Unique identifier for the launch site |
+                    | SITE_NAME | Full name of the launch facility |
+                    | LAUNCH_SITE | Description of the site and facilities |
+                    | COUNTRY | Country where the launch site is located |
+                    | LONGITUDE | Geographical longitude coordinate (degrees) |
+                    | LATITUDE | Geographical latitude coordinate (degrees) |
+                    | ALTITUDE | Height above sea level (meters) |
+                    | FIRST_LAUNCH | Date of the first launch from this site |
+                    | LAST_LAUNCH | Date of the most recent launch from this site |
+                    | TOTAL_LAUNCHES | Total number of launches conducted from this site |
+                    | LAUNCH_VEHICLES | Types of launch vehicles used at this site |
+                    | STATUS | Current operational status of the launch site |
+                    """)
                 
                 # Map of launch sites if coordinates are available
                 if 'LATITUDE' in data.columns and 'LONGITUDE' in data.columns:
@@ -902,6 +945,28 @@ else:
                 
                 st.dataframe(data, use_container_width=True)
                 
+                # Add field explanations in an expandable section
+                with st.expander("Decay Data Fields Explanation"):
+                    st.markdown("""
+                    | Field | Description |
+                    | --- | --- |
+                    | NORAD_CAT_ID | The unique identifier assigned by NORAD |
+                    | SATNAME | Name of the satellite or space object |
+                    | OBJECT_ID | International designator in format YYYY-NNNLPP |
+                    | DECAY_DATE | Date and time when the object re-entered Earth's atmosphere |
+                    | DECAY_EPOCH | Time of decay in standard epoch format |
+                    | SOURCE | Source of the decay determination (observed or predicted) |
+                    | MSG_EPOCH | Date when the decay message was generated |
+                    | REV_NUMBER | Number of orbits completed before decay |
+                    | INCLINATION | Orbital inclination in degrees at time of decay |
+                    | APOGEE | Last known highest altitude in kilometers before decay |
+                    | PERIGEE | Last known lowest altitude in kilometers before decay |
+                    | COMMENT | Additional information about the re-entry event |
+                    | RCS | Radar Cross Section - size of the object |
+                    | ORBIT_CENTER | Center of orbit (typically EARTH) |
+                    | COUNTRY | Country or organization that owned/operated the object |
+                    """)
+                
                 # Create visualization of decay dates
                 if 'DECAY_DATE' in data.columns:
                     st.subheader("Recent Re-entries")
@@ -1007,6 +1072,29 @@ else:
                 else:
                     # Display raw data first to ensure something is visible even if processing fails
                     st.dataframe(data, use_container_width=True)
+                    
+                    # Add field explanations in an expandable section
+                    with st.expander("Conjunction Data Fields Explanation"):
+                        st.markdown("""
+                        | Field | Description |
+                        | --- | --- |
+                        | CDM_ID | Unique identifier for this Conjunction Data Message |
+                        | CREATED | Date and time when the conjunction message was created |
+                        | TCA / CDM_TCA | Time of Closest Approach - when objects will pass closest to each other |
+                        | MISS_DISTANCE | Predicted minimum distance between the two objects in kilometers |
+                        | PC | Probability of Collision - likelihood of objects colliding |
+                        | EMERGENCY_REPORTABLE | Whether this conjunction requires emergency reporting (Y/N) |
+                        | SAT_1_ID / OBJECT_DESIGNATOR | Identifier for the primary object in conjunction |
+                        | SAT_1_NAME / OBJECT_NAME | Name of the primary object |
+                        | SAT_2_ID / OBJECT_2_DESIGNATOR | Identifier for the secondary object in conjunction |
+                        | SAT_2_NAME / OBJECT_2_NAME | Name of the secondary object |
+                        | RELATIVE_SPEED | Relative velocity between the two objects in km/s |
+                        | RELATIVE_POSITION_R | Radial component of relative position vector |
+                        | RELATIVE_POSITION_T | In-track component of relative position vector |
+                        | RELATIVE_POSITION_N | Cross-track component of relative position vector |
+                        | COLLISION_PROBABILITY | Calculated probability of objects colliding |
+                        | COLLISION_RADIUS | Combined radius of both objects in meters |
+                        """)
                 
                 try:
                     # Format the data for better display
@@ -1140,6 +1228,27 @@ else:
                 else:
                     # Display raw data first to ensure something is visible
                     st.dataframe(data, use_container_width=True)
+                    
+                    # Add field explanations in an expandable section
+                    with st.expander("Boxscore Data Fields Explanation"):
+                        st.markdown("""
+                        | Field | Description |
+                        | --- | --- |
+                        | COUNTRY | Country or organization responsible for the space objects |
+                        | SPADOC_CD | Space Defense Operations Center code for the country |
+                        | ORBITAL_PAYLOAD_COUNT | Number of operational satellites in orbit |
+                        | ORBITAL_ROCKET_BODY_COUNT | Number of spent rocket bodies in orbit |
+                        | ORBITAL_DEBRIS_COUNT | Number of cataloged debris objects in orbit |
+                        | ORBITAL_TOTAL_COUNT | Total number of tracked objects in orbit for this country |
+                        | DECAYED_PAYLOAD_COUNT | Number of satellites that have re-entered the atmosphere |
+                        | DECAYED_ROCKET_BODY_COUNT | Number of rocket bodies that have re-entered |
+                        | DECAYED_DEBRIS_COUNT | Number of debris pieces that have re-entered |
+                        | DECAYED_TOTAL_COUNT | Total number of objects that have re-entered |
+                        | TOTAL_PAYLOAD_COUNT | Total satellites (operational + re-entered) |
+                        | TOTAL_ROCKET_BODY_COUNT | Total rocket bodies (in orbit + re-entered) |
+                        | TOTAL_DEBRIS_COUNT | Total debris objects (in orbit + re-entered) |
+                        | TOTAL_COUNT | Total objects associated with this country |
+                        """)
                 
                 try:
                     # Check required columns exist
