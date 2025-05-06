@@ -158,33 +158,76 @@ class SpaceTrackClient:
         end_date = datetime.now().strftime("%Y-%m-%d")
         start_date = (datetime.now() - timedelta(days=days_back)).strftime("%Y-%m-%d")
         
-        # First try with 'decay' class
+        # Try multiple possible column names and endpoints for decay data
+        attempted_endpoints = []
+        
+        # First try with 'decay' class and DECAY_DATE column
         try:
+            print("Trying decay data endpoint with DECAY_DATE column...")
             query_url = f"{self.BASE_URL}/basicspacedata/query/class/decay/format/json/DECAY_DATE/>{start_date}/DECAY_DATE/<{end_date}/orderby/DECAY_DATE%20desc/limit/{limit}"
+            attempted_endpoints.append(query_url)
             response = self.session.get(query_url)
             response.raise_for_status()
             data = response.json()
             
             # Convert to DataFrame
             df = pd.DataFrame(data)
-            return df
-        except requests.exceptions.RequestException as e:
-            print(f"Error fetching decay data: {e}")
-            
-            # Try alternative: satcat with decay filter
-            try:
-                print("Trying alternative decay data endpoint via satellite catalog...")
-                query_url = f"{self.BASE_URL}/basicspacedata/query/class/satcat/format/json/DECAY/>{start_date}/DECAY/<{end_date}/orderby/DECAY%20desc/limit/{limit}"
-                response = self.session.get(query_url)
-                response.raise_for_status()
-                data = response.json()
-                
-                # Convert to DataFrame
-                df = pd.DataFrame(data)
+            if not df.empty:
                 return df
-            except requests.exceptions.RequestException as e_alt:
-                print(f"Error fetching decay data via satellite catalog: {e_alt}")
-                return pd.DataFrame()
+        except requests.exceptions.RequestException as e:
+            print(f"Error fetching decay data with DECAY_DATE: {e}")
+        
+        # Try with 'decay' class and DECAY column
+        try:
+            print("Trying decay data endpoint with DECAY column...")
+            query_url = f"{self.BASE_URL}/basicspacedata/query/class/decay/format/json/DECAY/>{start_date}/DECAY/<{end_date}/orderby/DECAY%20desc/limit/{limit}"
+            attempted_endpoints.append(query_url)
+            response = self.session.get(query_url)
+            response.raise_for_status()
+            data = response.json()
+            
+            # Convert to DataFrame
+            df = pd.DataFrame(data)
+            if not df.empty:
+                return df
+        except requests.exceptions.RequestException as e:
+            print(f"Error fetching decay data with DECAY: {e}")
+            
+        # Try alternative: satcat with decay filter
+        try:
+            print("Trying alternative decay data endpoint via satellite catalog...")
+            query_url = f"{self.BASE_URL}/basicspacedata/query/class/satcat/format/json/DECAY/>{start_date}/DECAY/<{end_date}/orderby/DECAY%20desc/limit/{limit}"
+            attempted_endpoints.append(query_url)
+            response = self.session.get(query_url)
+            response.raise_for_status()
+            data = response.json()
+            
+            # Convert to DataFrame
+            df = pd.DataFrame(data)
+            if not df.empty:
+                return df
+        except requests.exceptions.RequestException as e_alt:
+            print(f"Error fetching decay data via satellite catalog: {e_alt}")
+        
+        # Try different class: decay-data
+        try:
+            print("Trying decay-data endpoint...")
+            query_url = f"{self.BASE_URL}/basicspacedata/query/class/decay-data/format/json/DECAY_EPOCH/>{start_date}/DECAY_EPOCH/<{end_date}/orderby/DECAY_EPOCH%20desc/limit/{limit}"
+            attempted_endpoints.append(query_url)
+            response = self.session.get(query_url)
+            response.raise_for_status()
+            data = response.json()
+            
+            # Convert to DataFrame
+            df = pd.DataFrame(data)
+            if not df.empty:
+                return df
+        except requests.exceptions.RequestException as e:
+            print(f"Error fetching from decay-data endpoint: {e}")
+        
+        # If all attempts failed, return an empty DataFrame
+        print(f"All decay data endpoints failed. Attempted: {attempted_endpoints}")
+        return pd.DataFrame()
             
     def get_conjunction_data(self, days_back=7, limit=100):
         """
