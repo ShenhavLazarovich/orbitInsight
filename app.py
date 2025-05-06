@@ -1121,8 +1121,133 @@ else:
                         except Exception as pc_error:
                             st.warning(f"Could not process collision probability data: {pc_error}")
                     
+                    # Summary statistics and key insights
+                    st.subheader("Conjunction Summary and Key Insights")
+                    
+                    # Create columns for statistics display
+                    stat_col1, stat_col2 = st.columns(2)
+                    
+                    # Calculate common statistics
+                    try:
+                        # Count of conjunction events
+                        total_events = len(data)
+                        
+                        with stat_col1:
+                            st.metric("Total Conjunction Events", f"{total_events:,}")
+                            
+                            # Time range
+                            if 'CDM_TCA' in data.columns and not data['CDM_TCA'].isna().all():
+                                min_date = pd.to_datetime(data['CDM_TCA']).min().strftime('%Y-%m-%d')
+                                max_date = pd.to_datetime(data['CDM_TCA']).max().strftime('%Y-%m-%d')
+                                st.metric("Date Range", f"{min_date} to {max_date}")
+                            
+                            # Check for emergency reportable events
+                            if 'EMERGENCY_REPORTABLE' in data.columns:
+                                emergency_count = data['EMERGENCY_REPORTABLE'].str.upper().str.contains('Y').sum()
+                                if emergency_count > 0:
+                                    st.metric("Emergency Reportable Events", f"{emergency_count}", 
+                                             delta=f"{emergency_count/total_events:.1%} of total", 
+                                             delta_color="inverse")
+                        
+                        with stat_col2:
+                            # Miss distance statistics if available
+                            miss_dist_field = None
+                            for field in ['MISS_DISTANCE', 'MINIMUM_RANGE', 'MIN_RNG', 'RANGE']:
+                                if field in data.columns:
+                                    miss_dist_field = field
+                                    break
+                                    
+                            if miss_dist_field:
+                                # Convert to numeric
+                                data[miss_dist_field] = pd.to_numeric(data[miss_dist_field], errors='coerce')
+                                
+                                # Calculate statistics
+                                min_dist = data[miss_dist_field].min()
+                                median_dist = data[miss_dist_field].median()
+                                
+                                st.metric("Closest Approach", f"{min_dist:.2f} km")
+                                st.metric("Median Miss Distance", f"{median_dist:.2f} km")
+                            
+                            # Collision probability stats if available
+                            if 'PC' in data.columns:
+                                # Convert to numeric
+                                data['PC'] = pd.to_numeric(data['PC'], errors='coerce')
+                                
+                                # Get max probability
+                                max_prob = data['PC'].max()
+                                high_risk = data[data['PC'] > 0.0001].shape[0]  # Commonly used threshold
+                                
+                                if not pd.isna(max_prob):
+                                    st.metric("Highest Collision Probability", f"{max_prob:.6f}")
+                                    if high_risk > 0:
+                                        st.metric("High Risk Events (PC > 0.0001)", f"{high_risk}", 
+                                                 delta=f"{high_risk/total_events:.1%} of total", 
+                                                 delta_color="inverse")
+                    
+                    except Exception as stats_error:
+                        st.warning(f"Could not calculate all conjunction statistics: {stats_error}")
+                    
+                    # Add interesting observations
+                    st.subheader("Key Observations")
+                    
+                    # Create observations based on the data
+                    observations = []
+                    
+                    try:
+                        # Objects involved in conjunctions
+                        object_cols = []
+                        for col in ['OBJECT_NAME', 'SAT_1_NAME', 'OBJECT', 'PRIMARY_OBJECT']:
+                            if col in data.columns:
+                                object_cols.append(col)
+                                
+                        if object_cols:
+                            main_obj_col = object_cols[0]
+                            # Count unique objects
+                            unique_objects = data[main_obj_col].nunique()
+                            most_common = data[main_obj_col].value_counts().head(1)
+                            if not most_common.empty:
+                                most_common_name = most_common.index[0]
+                                most_common_count = most_common.values[0]
+                                observations.append(f"**{unique_objects}** unique objects were involved in conjunction events.")
+                                observations.append(f"**{most_common_name}** was involved in the most conjunction events (**{most_common_count}** events).")
+                        
+                        # Time patterns
+                        if 'CDM_TCA' in data.columns and not data['CDM_TCA'].isna().all():
+                            # Convert to datetime
+                            data['CDM_TCA'] = pd.to_datetime(data['CDM_TCA'], errors='coerce')
+                            
+                            # Group by day and count
+                            daily_counts = data['CDM_TCA'].dt.date.value_counts()
+                            if not daily_counts.empty:
+                                max_day = daily_counts.idxmax()
+                                max_day_count = daily_counts.max()
+                                if max_day_count > 1:
+                                    observations.append(f"**{max_day}** had the highest number of conjunction events (**{max_day_count}** events).")
+                        
+                        # Distance patterns
+                        if miss_dist_field:
+                            # Count close approaches (under 1 km)
+                            close_approaches = data[data[miss_dist_field] < 1].shape[0]
+                            if close_approaches > 0:
+                                observations.append(f"**{close_approaches}** conjunction events had a miss distance less than **1 km**.")
+                                
+                            # Count very close approaches (under 100 meters)
+                            very_close = data[data[miss_dist_field] < 0.1].shape[0]
+                            if very_close > 0:
+                                observations.append(f"**{very_close}** conjunction events had a miss distance less than **100 meters**.")
+                    
+                    except Exception as obs_error:
+                        observations.append(f"_Note: Some observations could not be calculated due to data structure variations._")
+                    
+                    # Display observations
+                    if observations:
+                        for obs in observations:
+                            st.markdown(obs)
+                    else:
+                        st.info("No specific patterns or observations could be extracted from this conjunction data set.")
+                    
                     # Visualizations for conjunction data
-                    st.subheader("Conjunction Analysis")
+                    st.subheader("Conjunction Analysis Visualizations")
                     
                     # Miss distance histogram if available
                     if 'MISS_DISTANCE' in data.columns:
@@ -1179,6 +1304,111 @@ else:
                                 st.warning("Could not find miss distance field in the data for timeline visualization.")
                         except Exception as timeline_error:
                             st.warning(f"Could not create timeline visualization: {timeline_error}")
+                            
+                    # Add more interesting visualizations if enough data is available
+                    if len(data) >= 5:  # Only create this for datasets with enough points
+                        try:
+                            st.subheader("Conjunction Patterns Analysis")
+                            
+                            # Find appropriate columns for time, distance, and relative speed
+                            time_col = None
+                            dist_col = None
+                            speed_col = None
+                            
+                            # Check for time column
+                            for col in ['CDM_TCA', 'TCA', 'CLOSEST_APPROACH_TIME']:
+                                if col in data.columns:
+                                    time_col = col
+                                    break
+                                    
+                            # Check for distance column
+                            for col in ['MISS_DISTANCE', 'MIN_RNG', 'MINIMUM_RANGE', 'RANGE']:
+                                if col in data.columns:
+                                    dist_col = col
+                                    break
+                                    
+                            # Check for relative speed column
+                            for col in ['RELATIVE_SPEED', 'REL_SPEED', 'RELATIVE_VELOCITY']:
+                                if col in data.columns:
+                                    speed_col = col
+                                    break
+                            
+                            # Additional columns for bubble chart and interactivity
+                            object_col = None
+                            for col in ['OBJECT_NAME', 'SAT_1_NAME', 'OBJECT', 'PRIMARY_OBJECT']:
+                                if col in data.columns:
+                                    object_col = col
+                                    break
+                                    
+                            # Create a bubble chart if we have appropriate columns
+                            if dist_col and speed_col:
+                                # Convert columns to numeric
+                                data[dist_col] = pd.to_numeric(data[dist_col], errors='coerce')
+                                data[speed_col] = pd.to_numeric(data[speed_col], errors='coerce')
+                                
+                                # Create additional columns for better chart readability
+                                data['risk_level'] = pd.cut(
+                                    data[dist_col], 
+                                    bins=[0, 0.1, 1, 10, float('inf')],
+                                    labels=['Critical (< 100m)', 'High (100m-1km)', 'Moderate (1-10km)', 'Low (>10km)']
+                                )
+                                
+                                # Define color map
+                                risk_colors = {
+                                    'Critical (< 100m)': 'red',
+                                    'High (100m-1km)': 'orange',
+                                    'Moderate (1-10km)': 'yellow',
+                                    'Low (>10km)': 'green'
+                                }
+                                
+                                # Create the bubble chart
+                                fig = px.scatter(
+                                    data,
+                                    x=dist_col,
+                                    y=speed_col,
+                                    color='risk_level',
+                                    size=[10] * len(data),  # Constant size for better visibility
+                                    hover_name=object_col if object_col else None,
+                                    title='Conjunction Risk Analysis: Miss Distance vs. Relative Speed',
+                                    labels={
+                                        dist_col: 'Miss Distance (km)',
+                                        speed_col: 'Relative Speed (km/s)'
+                                    },
+                                    color_discrete_map=risk_colors
+                                )
+                                
+                                # Add annotation lines for risk zones
+                                fig.add_vline(x=0.1, line_width=1, line_dash="dash", line_color="red")
+                                fig.add_vline(x=1, line_width=1, line_dash="dash", line_color="orange")
+                                fig.add_vline(x=10, line_width=1, line_dash="dash", line_color="yellow")
+                                
+                                # Add explanation annotation
+                                fig.add_annotation(
+                                    text="Lower miss distance and higher relative speed = Higher risk",
+                                    x=0.5, y=0.95,
+                                    xref="paper", yref="paper",
+                                    showarrow=False,
+                                    font=dict(size=12)
+                                )
+                                
+                                st.plotly_chart(fig, use_container_width=True)
+                                
+                                # Add explanatory text about the visualization
+                                st.markdown("""
+                                **Understanding the Risk Analysis Chart:**
+                                - **Critical Risk Zone (Red)**: Miss distances under 100 meters represent critical collision risks
+                                - **High Risk Zone (Orange)**: Miss distances between 100 meters and 1 km indicate high risk
+                                - **Moderate Risk Zone (Yellow)**: Miss distances between 1-10 km require monitoring
+                                - **Low Risk Zone (Green)**: Miss distances above 10 km generally pose little risk
+                                
+                                Higher relative speeds increase the severity of potential collisions, as they result in more debris generation.
+                                """)
+                            
+                            else:
+                                st.info("Missing required columns for advanced risk visualization. This may be due to Space-Track API changes.")
+                                
+                        except Exception as adv_viz_error:
+                            st.warning(f"Could not create advanced conjunction pattern visualization: {adv_viz_error}")
                     
                 except Exception as analysis_error:
                     st.error(f"Error during conjunction data analysis: {analysis_error}")
