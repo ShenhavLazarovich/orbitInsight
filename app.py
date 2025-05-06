@@ -1230,31 +1230,80 @@ else:
                         
                         with filter_cols[0]:
                             # Filter by object name
+                            # Identify all possible name columns for primary object
                             obj_name_cols = [col for col in data.columns if any(x in col.upper() for x in ['OBJECT', 'NAME', 'SAT_1'])]
+                            
                             if obj_name_cols:
-                                obj_name_col = obj_name_cols[0]
+                                # Debug output - uncomment if needed
+                                # st.write(f"Available object name columns: {obj_name_cols}")
+                                
                                 name_filter = st.text_input("Filter by Primary Object", 
                                                             placeholder="e.g., ISS, COSMOS")
-                                if name_filter and obj_name_col in data.columns:
-                                    try:
-                                        filtered_data = filtered_data[filtered_data[obj_name_col].astype(str).str.contains(name_filter, case=False, na=False)]
+                                
+                                if name_filter:
+                                    # Initialize mask as all False
+                                    mask = pd.Series(False, index=filtered_data.index)
+                                    
+                                    # Try to match across all name columns (more robust)
+                                    for col in obj_name_cols:
+                                        if col in data.columns:
+                                            try:
+                                                # Convert column to string and check for case-insensitive matches
+                                                col_mask = filtered_data[col].astype(str).str.contains(
+                                                    name_filter, case=False, na=False, regex=True
+                                                )
+                                                # Combine with OR logic - match in any column is sufficient
+                                                mask = mask | col_mask
+                                                # Debug output - uncomment if needed
+                                                # st.write(f"Found {col_mask.sum()} matches in column {col}")
+                                            except Exception as e:
+                                                st.warning(f"Error filtering by {col}: {e}")
+                                    
+                                    # Apply the combined mask
+                                    if mask.any():
+                                        filtered_data = filtered_data[mask]
                                         filters_applied = True
-                                    except:
-                                        st.warning(f"Could not filter by {obj_name_col}")
+                                        st.success(f"Found {mask.sum()} matching objects containing '{name_filter}'")
+                                    else:
+                                        st.warning(f"No matches found for '{name_filter}' in any name column")
                             
                         with filter_cols[1]:
                             # Filter by secondary object
                             obj2_name_cols = [col for col in data.columns if any(x in col.upper() for x in ['OBJECT_2', 'SAT_2', 'SECOND'])]
+                            
                             if obj2_name_cols:
-                                obj2_name_col = obj2_name_cols[0]
+                                # Debug output - uncomment if needed
+                                # st.write(f"Available secondary object columns: {obj2_name_cols}")
+                                
                                 name2_filter = st.text_input("Filter by Secondary Object", 
-                                                            placeholder="e.g., DEBRIS, STARLINK")
-                                if name2_filter and obj2_name_col in data.columns:
-                                    try:
-                                        filtered_data = filtered_data[filtered_data[obj2_name_col].astype(str).str.contains(name2_filter, case=False, na=False)]
+                                                           placeholder="e.g., DEBRIS, STARLINK")
+                                
+                                if name2_filter:
+                                    # Initialize mask as all False
+                                    mask2 = pd.Series(False, index=filtered_data.index)
+                                    
+                                    # Try to match across all secondary object name columns
+                                    for col in obj2_name_cols:
+                                        if col in data.columns:
+                                            try:
+                                                # Convert column to string and check for case-insensitive matches
+                                                col_mask = filtered_data[col].astype(str).str.contains(
+                                                    name2_filter, case=False, na=False, regex=True
+                                                )
+                                                # Combine with OR logic - match in any column is sufficient
+                                                mask2 = mask2 | col_mask
+                                                # Debug output - uncomment if needed
+                                                # st.write(f"Found {col_mask.sum()} matches in column {col}")
+                                            except Exception as e:
+                                                st.warning(f"Error filtering by {col}: {e}")
+                                    
+                                    # Apply the combined mask
+                                    if mask2.any():
+                                        filtered_data = filtered_data[mask2]
                                         filters_applied = True
-                                    except:
-                                        st.warning(f"Could not filter by {obj2_name_col}")
+                                        st.success(f"Found {mask2.sum()} matching secondary objects containing '{name2_filter}'")
+                                    else:
+                                        st.warning(f"No matches found for '{name2_filter}' in any secondary object column")
                         
                         with filter_cols[2]:
                             # Date range filter
