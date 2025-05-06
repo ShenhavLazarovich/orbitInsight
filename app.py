@@ -1304,13 +1304,29 @@ else:
                                         min_dist = float(miss_dist_vals.min())
                                         max_dist = float(miss_dist_vals.max())
                                         
-                                        miss_dist_range = st.slider(
-                                            "Miss Distance (km)",
-                                            min_value=min_dist,
-                                            max_value=max_dist,
-                                            value=(min_dist, max_dist),
-                                            step=max(0.001, (max_dist-min_dist)/100)
-                                        )
+                                        # Ensure min and max are not the same value
+                                        if min_dist == max_dist:
+                                            max_dist = min_dist + 0.1
+                                            
+                                        # Make sure step is appropriate
+                                        step_size = max(0.001, (max_dist-min_dist)/100)
+                                        
+                                        # Show the current range
+                                        st.write(f"Range: {min_dist:.3f} km to {max_dist:.3f} km")
+                                        
+                                        # Use a range slider instead if values differ enough
+                                        if max_dist - min_dist > step_size * 2:
+                                            miss_dist_range = st.slider(
+                                                "Miss Distance (km)",
+                                                min_value=min_dist,
+                                                max_value=max_dist,
+                                                value=(min_dist, max_dist),
+                                                step=step_size
+                                            )
+                                        else:
+                                            # If range is too small, just show a message
+                                            st.info("Miss distance range is too small to filter")
+                                            miss_dist_range = (min_dist, max_dist)
                                         
                                         if miss_dist_range != (min_dist, max_dist):
                                             filtered_data = filtered_data[
@@ -1347,23 +1363,31 @@ else:
                                         
                                         st.markdown(f"Collision Probability Range:  \n{min_prob_disp} to {max_prob_disp}")
                                         
-                                        # Use log slider for better usability with small probability values
+                                        # Instead of using a log slider which can cause issues, 
+                                        # just use probability filter categories
                                         import numpy as np
-                                        log_min = np.log10(max(min_prob, 1e-10))
-                                        log_max = np.log10(max(max_prob, 1e-9))
                                         
-                                        log_range = st.slider(
-                                            "Collision Probability (log scale)",
-                                            min_value=log_min,
-                                            max_value=log_max,
-                                            value=(log_min, log_max),
-                                            step=0.1
+                                        # Create probability categories for easier filtering
+                                        prob_categories = {
+                                            "All probabilities": (min_prob, max_prob),
+                                            "Negligible (<1e-6)": (0, 1e-6),
+                                            "Very Low (1e-6 to 1e-5)": (1e-6, 1e-5),
+                                            "Low (1e-5 to 1e-4)": (1e-5, 1e-4),
+                                            "Medium (1e-4 to 1e-3)": (1e-4, 1e-3),
+                                            "High (1e-3 to 1e-2)": (1e-3, 1e-2),
+                                            "Very High (>1e-2)": (1e-2, max(max_prob, 1.0))
+                                        }
+                                        
+                                        selected_category = st.selectbox(
+                                            "Filter by Collision Probability Level",
+                                            options=list(prob_categories.keys())
                                         )
                                         
-                                        # Convert back from log scale
-                                        prob_range = (10**log_range[0], 10**log_range[1])
+                                        # Set the probability range based on selected category
+                                        prob_range = prob_categories[selected_category]
                                         
-                                        if prob_range != (min_prob, max_prob):
+                                        # Only update filter if not "All probabilities"
+                                        if selected_category != "All probabilities":
                                             filtered_data = filtered_data[
                                                 pd.to_numeric(filtered_data[prob_col], errors='coerce').between(
                                                     prob_range[0], prob_range[1]
@@ -1385,13 +1409,29 @@ else:
                                         min_vel = float(vel_vals.min())
                                         max_vel = float(vel_vals.max())
                                         
-                                        vel_range = st.slider(
-                                            "Relative Velocity (km/s)",
-                                            min_value=min_vel,
-                                            max_value=max_vel,
-                                            value=(min_vel, max_vel),
-                                            step=max(0.1, (max_vel-min_vel)/100)
-                                        )
+                                        # Ensure min and max are not the same value
+                                        if min_vel == max_vel:
+                                            max_vel = min_vel + 0.1
+                                            
+                                        # Make sure step is appropriate 
+                                        step_size = max(0.1, (max_vel-min_vel)/100)
+                                        
+                                        # Show the current range
+                                        st.write(f"Range: {min_vel:.2f} km/s to {max_vel:.2f} km/s")
+                                        
+                                        # Use a range slider if values differ enough
+                                        if max_vel - min_vel > step_size * 2:
+                                            vel_range = st.slider(
+                                                "Relative Velocity (km/s)",
+                                                min_value=min_vel,
+                                                max_value=max_vel,
+                                                value=(min_vel, max_vel),
+                                                step=step_size
+                                            )
+                                        else:
+                                            # If range is too small, just show a message
+                                            st.info("Velocity range is too small to filter")
+                                            vel_range = (min_vel, max_vel)
                                         
                                         if vel_range != (min_vel, max_vel):
                                             filtered_data = filtered_data[
