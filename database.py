@@ -542,26 +542,64 @@ def create_hubble_sample_data(engine):
         engine: SQLAlchemy database engine
     """
     try:
-        # Create the satellite_trajectories table if it doesn't exist
-        create_table_query = text("""
-            CREATE TABLE IF NOT EXISTS satellite_trajectories (
-                id SERIAL PRIMARY KEY,
-                satellite_id VARCHAR(50) NOT NULL,
-                satellite_name VARCHAR(100),
-                timestamp TIMESTAMP NOT NULL,
-                x FLOAT,
-                y FLOAT,
-                z FLOAT,
-                velocity_x FLOAT,
-                velocity_y FLOAT,
-                velocity_z FLOAT,
-                altitude FLOAT
+        # First, check if the table exists
+        check_table_query = text("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_name = 'satellite_trajectories'
             )
         """)
         
         with engine.connect() as conn:
-            conn.execute(create_table_query)
-            conn.commit()
+            result = conn.execute(check_table_query)
+            table_exists = result.scalar()
+        
+        if table_exists:
+            # Check if satellite_name column exists
+            check_column_query = text("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.columns 
+                    WHERE table_name = 'satellite_trajectories' AND column_name = 'satellite_name'
+                )
+            """)
+            
+            with engine.connect() as conn:
+                result = conn.execute(check_column_query)
+                column_exists = result.scalar()
+            
+            # If the column doesn't exist, add it
+            if not column_exists:
+                alter_table_query = text("""
+                    ALTER TABLE satellite_trajectories 
+                    ADD COLUMN satellite_name VARCHAR(100)
+                """)
+                
+                with engine.connect() as conn:
+                    conn.execute(alter_table_query)
+                    conn.commit()
+                    print("Added satellite_name column to existing table")
+        else:
+            # Create the satellite_trajectories table with all columns
+            create_table_query = text("""
+                CREATE TABLE IF NOT EXISTS satellite_trajectories (
+                    id SERIAL PRIMARY KEY,
+                    satellite_id VARCHAR(50) NOT NULL,
+                    satellite_name VARCHAR(100),
+                    timestamp TIMESTAMP NOT NULL,
+                    x FLOAT,
+                    y FLOAT,
+                    z FLOAT,
+                    velocity_x FLOAT,
+                    velocity_y FLOAT,
+                    velocity_z FLOAT,
+                    altitude FLOAT
+                )
+            """)
+            
+            with engine.connect() as conn:
+                conn.execute(create_table_query)
+                conn.commit()
+                print("Created satellite_trajectories table")
         
         # Generate sample trajectory data for Hubble
         # Hubble orbits at around 540 km altitude in a roughly circular orbit
@@ -664,26 +702,64 @@ def store_trajectory_data(engine, trajectory_df):
         return
         
     try:
-        # Ensure the satellite_trajectories table exists
-        create_table_query = text("""
-            CREATE TABLE IF NOT EXISTS satellite_trajectories (
-                id SERIAL PRIMARY KEY,
-                satellite_id VARCHAR(50) NOT NULL,
-                satellite_name VARCHAR(100),
-                timestamp TIMESTAMP NOT NULL,
-                x FLOAT,
-                y FLOAT,
-                z FLOAT,
-                velocity_x FLOAT,
-                velocity_y FLOAT,
-                velocity_z FLOAT,
-                altitude FLOAT
+        # First, check if the table exists
+        check_table_query = text("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_name = 'satellite_trajectories'
             )
         """)
         
         with engine.connect() as conn:
-            conn.execute(create_table_query)
-            conn.commit()
+            result = conn.execute(check_table_query)
+            table_exists = result.scalar()
+        
+        if table_exists:
+            # Check if satellite_name column exists
+            check_column_query = text("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.columns 
+                    WHERE table_name = 'satellite_trajectories' AND column_name = 'satellite_name'
+                )
+            """)
+            
+            with engine.connect() as conn:
+                result = conn.execute(check_column_query)
+                column_exists = result.scalar()
+            
+            # If the column doesn't exist, add it
+            if not column_exists:
+                alter_table_query = text("""
+                    ALTER TABLE satellite_trajectories 
+                    ADD COLUMN satellite_name VARCHAR(100)
+                """)
+                
+                with engine.connect() as conn:
+                    conn.execute(alter_table_query)
+                    conn.commit()
+                    print("Added satellite_name column to existing table")
+        else:
+            # Create the satellite_trajectories table with all columns
+            create_table_query = text("""
+                CREATE TABLE IF NOT EXISTS satellite_trajectories (
+                    id SERIAL PRIMARY KEY,
+                    satellite_id VARCHAR(50) NOT NULL,
+                    satellite_name VARCHAR(100),
+                    timestamp TIMESTAMP NOT NULL,
+                    x FLOAT,
+                    y FLOAT,
+                    z FLOAT,
+                    velocity_x FLOAT,
+                    velocity_y FLOAT,
+                    velocity_z FLOAT,
+                    altitude FLOAT
+                )
+            """)
+            
+            with engine.connect() as conn:
+                conn.execute(create_table_query)
+                conn.commit()
+                print("Created satellite_trajectories table")
         
         # Prepare DataFrame for storage
         df_to_store = trajectory_df.copy()
