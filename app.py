@@ -837,16 +837,54 @@ else:
             
             if st.sidebar.button("Load Decay Data"):
                 with satellite_spinner("Loading decay data..."):
+                    # Add a status container to show the current operation
+                    status_container = st.empty()
+                    status_container.info("Connecting to Space-Track.org to retrieve decay data... This might take a moment as we try multiple API endpoints.")
+                    
                     try:
+                        # Wrap this in a try-except to handle potential API errors
                         data = db.get_space_track_data(engine, "decay", days_back=days_back, limit=limit)
+                        
                         if not data.empty:
+                            # Data loaded successfully
+                            status_container.success(f"Successfully retrieved {len(data)} decay records!")
                             st.session_state['decay_data'] = data
                         else:
-                            st.warning("No decay data found. Make sure Space-Track.org credentials are valid.")
+                            # No data found
+                            status_container.warning("No decay data retrieved from Space-Track.org")
+                            st.warning("No decay data found. This could be due to one of the following reasons:")
+                            st.markdown("""
+                            - Your Space-Track.org credentials might not have access to decay data
+                            - The Space-Track API structure may have changed
+                            - There might not be any decay data in the selected time period
+                            - The service might be temporarily unavailable
+                            """)
+                            
                             if not has_space_track_credentials:
-                                st.info("Space-Track.org credentials are required to access this data.")
+                                st.error("Space-Track.org credentials are required to access this data. Please set SPACETRACK_USERNAME and SPACETRACK_PASSWORD in your environment.")
+                            
+                            # Provide a link to Space-Track for manual checking
+                            st.markdown("[Check Space-Track.org website directly](https://www.space-track.org)")
+                    
                     except Exception as e:
-                        st.error(f"Error retrieving decay data: {str(e)}")
+                        error_msg = str(e)
+                        status_container.error("Error connecting to Space-Track.org")
+                        
+                        # Provide more helpful error details
+                        if "DOES NOT EXIST FOR TABLE" in error_msg:
+                            st.error("API Error: The Space-Track database schema has changed. The column names used in the query are no longer valid.")
+                            st.info("The application is designed to try multiple alternative column names automatically.")
+                        elif "Unauthorized" in error_msg or "401" in error_msg:
+                            st.error("Authentication Error: Space-Track.org credentials are invalid or expired.")
+                            st.info("Please check your SPACETRACK_USERNAME and SPACETRACK_PASSWORD environment variables.")
+                        elif "Timeout" in error_msg or "timed out" in error_msg.lower():
+                            st.error("Timeout Error: Connection to Space-Track.org timed out.")
+                            st.info("The service might be experiencing high load or network issues. Try again later.")
+                        else:
+                            st.error(f"Error retrieving decay data: {error_msg}")
+                            
+                        # Log the full error details for debugging
+                        print(f"Detailed decay data error: {e}")
             
             if 'decay_data' in st.session_state:
                 st.subheader("Satellite Decay Information")

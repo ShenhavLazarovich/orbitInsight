@@ -161,72 +161,102 @@ class SpaceTrackClient:
         # Try multiple possible column names and endpoints for decay data
         attempted_endpoints = []
         
-        # First try with 'decay' class and DECAY_DATE column
-        try:
-            print("Trying decay data endpoint with DECAY_DATE column...")
-            query_url = f"{self.BASE_URL}/basicspacedata/query/class/decay/format/json/DECAY_DATE/>{start_date}/DECAY_DATE/<{end_date}/orderby/DECAY_DATE%20desc/limit/{limit}"
-            attempted_endpoints.append(query_url)
-            response = self.session.get(query_url)
-            response.raise_for_status()
-            data = response.json()
-            
-            # Convert to DataFrame
-            df = pd.DataFrame(data)
-            if not df.empty:
-                return df
-        except requests.exceptions.RequestException as e:
-            print(f"Error fetching decay data with DECAY_DATE: {e}")
+        # Try all combinations of class and date column names for decay data
+        decay_classes = ["decay", "decays", "satcat", "decay-data", "reentry"]
+        date_columns = ["DECAY_DATE", "DECAY", "DECAY_EPOCH", "REENTRY_DATE", "REENTRY"]
         
-        # Try with 'decay' class and DECAY column
-        try:
-            print("Trying decay data endpoint with DECAY column...")
-            query_url = f"{self.BASE_URL}/basicspacedata/query/class/decay/format/json/DECAY/>{start_date}/DECAY/<{end_date}/orderby/DECAY%20desc/limit/{limit}"
-            attempted_endpoints.append(query_url)
-            response = self.session.get(query_url)
-            response.raise_for_status()
-            data = response.json()
-            
-            # Convert to DataFrame
-            df = pd.DataFrame(data)
-            if not df.empty:
-                return df
-        except requests.exceptions.RequestException as e:
-            print(f"Error fetching decay data with DECAY: {e}")
-            
-        # Try alternative: satcat with decay filter
-        try:
-            print("Trying alternative decay data endpoint via satellite catalog...")
-            query_url = f"{self.BASE_URL}/basicspacedata/query/class/satcat/format/json/DECAY/>{start_date}/DECAY/<{end_date}/orderby/DECAY%20desc/limit/{limit}"
-            attempted_endpoints.append(query_url)
-            response = self.session.get(query_url)
-            response.raise_for_status()
-            data = response.json()
-            
-            # Convert to DataFrame
-            df = pd.DataFrame(data)
-            if not df.empty:
-                return df
-        except requests.exceptions.RequestException as e_alt:
-            print(f"Error fetching decay data via satellite catalog: {e_alt}")
+        # Try each combination systematically with detailed error reporting
+        for decay_class in decay_classes:
+            for date_column in date_columns:
+                try:
+                    print(f"Trying decay endpoint with class={decay_class}, column={date_column}...")
+                    query_url = f"{self.BASE_URL}/basicspacedata/query/class/{decay_class}/format/json/{date_column}/>{start_date}/{date_column}/<{end_date}/orderby/{date_column}%20desc/limit/{limit}"
+                    attempted_endpoints.append(f"{decay_class} with {date_column}")
+                    
+                    print(f"Requesting URL: {query_url}")
+                    response = self.session.get(query_url)
+                    
+                    # Print the full response for debugging
+                    print(f"Response status: {response.status_code}")
+                    if response.status_code != 200:
+                        print(f"Response text: {response.text[:200]}...")  # Print first 200 chars of response text
+                    
+                    # Check for success
+                    response.raise_for_status()
+                    data = response.json()
+                    
+                    # Convert to DataFrame and verify we have actual data
+                    if isinstance(data, list) and len(data) > 0:
+                        df = pd.DataFrame(data)
+                        print(f"Successfully retrieved {len(df)} records from {decay_class} with {date_column}")
+                        
+                        # Verify we have some expected columns
+                        if len(df.columns) > 3:  # Basic check that we got a reasonable data structure
+                            return df
+                        else:
+                            print(f"Data from {decay_class} with {date_column} appears incomplete. Columns: {df.columns.tolist()}")
+                    elif isinstance(data, dict):
+                        print(f"Received dictionary response from {decay_class} with {date_column}: {list(data.keys())}")
+                    else:
+                        print(f"Endpoint {decay_class} with {date_column} returned empty list")
+                        
+                except requests.exceptions.RequestException as e:
+                    print(f"Error fetching decay data from {decay_class} with {date_column}: {e}")
+                    # Continue to the next combination
         
-        # Try different class: decay-data
+        # Try alternative via satellite catalog with decay parameter
         try:
-            print("Trying decay-data endpoint...")
-            query_url = f"{self.BASE_URL}/basicspacedata/query/class/decay-data/format/json/DECAY_EPOCH/>{start_date}/DECAY_EPOCH/<{end_date}/orderby/DECAY_EPOCH%20desc/limit/{limit}"
-            attempted_endpoints.append(query_url)
+            print("Trying direct satcat access with decay parameter...")
+            query_url = f"{self.BASE_URL}/basicspacedata/query/class/satcat/format/json/decay_date/notnull/orderby/decay_date%20desc/limit/{limit}"
+            attempted_endpoints.append("satcat with decay_date/notnull")
+            print(f"Requesting URL: {query_url}")
+            
             response = self.session.get(query_url)
+            print(f"Response status: {response.status_code}")
+            
             response.raise_for_status()
             data = response.json()
             
             # Convert to DataFrame
-            df = pd.DataFrame(data)
-            if not df.empty:
+            if isinstance(data, list) and len(data) > 0:
+                df = pd.DataFrame(data)
+                print(f"Successfully retrieved {len(df)} records from satcat with decay_date/notnull")
                 return df
+            else:
+                print("Satcat with decay_date/notnull returned empty list")
+                
         except requests.exceptions.RequestException as e:
-            print(f"Error fetching from decay-data endpoint: {e}")
+            print(f"Error fetching via satcat with decay_date/notnull: {e}")
         
-        # If all attempts failed, return an empty DataFrame
+        # As a last resort, get the database schema to check available tables and columns
+        try:
+            print("Getting database schema to identify correct tables and columns...")
+            query_url = f"{self.BASE_URL}/basicspacedata/modeldef"
+            response = self.session.get(query_url)
+            if response.status_code == 200:
+                print("Successfully retrieved schema. Available models:")
+                try:
+                    schema = response.json()
+                    for model in schema:
+                        if isinstance(model, dict) and "model" in model:
+                            model_name = model.get("model", "")
+                            if "decay" in model_name.lower() or "reentry" in model_name.lower():
+                                print(f"Found relevant model: {model_name}")
+                                if "fields" in model:
+                                    fields = [f.get("field", "") for f in model.get("fields", [])]
+                                    date_fields = [f for f in fields if "date" in f.lower() or "decay" in f.lower()]
+                                    print(f"  Relevant date fields: {date_fields}")
+                except Exception as e:
+                    print(f"Error parsing schema: {e}")
+            else:
+                print(f"Failed to retrieve schema: {response.status_code}")
+        except Exception as e:
+            print(f"Error retrieving schema: {e}")
+        
+        # If all attempts failed, return an empty DataFrame with detailed error
         print(f"All decay data endpoints failed. Attempted: {attempted_endpoints}")
+        print("This may be due to API changes or your account not having access to decay data.")
+        print("Please check your Space-Track.org credentials and permissions.")
         return pd.DataFrame()
             
     def get_conjunction_data(self, days_back=7, limit=100):
@@ -247,79 +277,149 @@ class SpaceTrackClient:
         end_date = datetime.now().strftime("%Y-%m-%d")
         start_date = (datetime.now() - timedelta(days=days_back)).strftime("%Y-%m-%d")
         
-        # Endpoints to try, in order of preference
-        endpoints = [
-            # Standard name variations
-            "cdm_public",
-            "cdm",
-            "gp_cdm",
-            # Additional variations of the same endpoint
-            "cdm-public",
-            "cdmpublic", 
-            "cdmspublic",
-            # Try different category/database combinations
-            "gp/cdm",
-            "gp/cdm_public",
-            "conjunction_data",
-            "conjunction",
-            # Try other possible names the API might use
-            "close_approaches",
-            "close-approach"
+        # Try all combinations of class, date column, and API path for conjunction data
+        conjunction_classes = [
+            "cdm_public", "cdm", "gp_cdm", "cdm-public", "cdmpublic", "cdmspublic",
+            "conjunction_data", "conjunction", "close_approaches", "close-approach"
+        ]
+        date_columns = ["CDM_TCA", "TCA", "CONJUNCTION_DATE", "CLOSE_APPROACH_DATE", "CREATION_DATE"]
+        path_prefixes = ["basicspacedata", "gp", "operations"]
+        
+        attempted_endpoints = []
+        
+        # First try the standard combinations
+        for path_prefix in path_prefixes:
+            for conj_class in conjunction_classes:
+                for date_column in date_columns:
+                    try:
+                        endpoint_str = f"{path_prefix}/{conj_class}/{date_column}"
+                        attempted_endpoints.append(endpoint_str)
+                        
+                        print(f"Trying conjunction endpoint: {endpoint_str}...")
+                        query_url = f"{self.BASE_URL}/{path_prefix}/query/class/{conj_class}/format/json/{date_column}/>{start_date}/{date_column}/<{end_date}/orderby/{date_column}%20desc/limit/{limit}"
+                        
+                        # Add debug info
+                        print(f"Requesting URL: {query_url}")
+                        
+                        # Make the request with error details
+                        response = self.session.get(query_url)
+                        print(f"Response status: {response.status_code}")
+                        if response.status_code != 200:
+                            print(f"Response text: {response.text[:200]}...")  # First 200 chars
+                            continue  # Try next combination if not 200
+                        
+                        data = response.json()
+                        
+                        # If we get here, the request was successful
+                        print(f"Successfully retrieved response from {endpoint_str}")
+                        
+                        # Validate that we received actual data
+                        if isinstance(data, list) and len(data) > 0:
+                            df = pd.DataFrame(data)
+                            print(f"Got DataFrame with {len(df)} rows and columns: {df.columns.tolist()[:5]}...")
+                            
+                            # Check for any useful columns - more permissive check
+                            useful_column_keywords = ['distance', 'probability', 'tca', 'date', 'time', 'miss', 'approach']
+                            has_useful_columns = any(
+                                any(keyword in col.lower() for keyword in useful_column_keywords)
+                                for col in df.columns
+                            )
+                            
+                            if len(df.columns) >= 3 and has_useful_columns:
+                                print(f"Found valid conjunction data from {endpoint_str}")
+                                return df
+                            else:
+                                print(f"Data from {endpoint_str} doesn't appear to be conjunction data.")
+                                print(f"Columns found: {df.columns.tolist()}")
+                        elif isinstance(data, dict):
+                            # Try to find data in nested structure
+                            print(f"Got dictionary response with keys: {list(data.keys())}")
+                            if 'data' in data and isinstance(data['data'], list) and len(data['data']) > 0:
+                                df = pd.DataFrame(data['data'])
+                                print(f"Found nested data with {len(df)} rows")
+                                
+                                # Same validation as above
+                                useful_column_keywords = ['distance', 'probability', 'tca', 'date', 'time', 'miss', 'approach']
+                                has_useful_columns = any(
+                                    any(keyword in col.lower() for keyword in useful_column_keywords)
+                                    for col in df.columns
+                                )
+                                
+                                if len(df.columns) >= 3 and has_useful_columns:
+                                    print(f"Found valid conjunction data from {endpoint_str} (nested)")
+                                    return df
+                        else:
+                            print(f"Endpoint {endpoint_str} returned empty data or unexpected format")
+                        
+                    except requests.exceptions.RequestException as e:
+                        error_str = str(e)
+                        # Only print full error for non-404/400 errors to reduce noise
+                        if "404" not in error_str and "400" not in error_str:
+                            print(f"Error fetching conjunction data using {endpoint_str}: {e}")
+                        else:
+                            print(f"Endpoint {endpoint_str} not available (404/400)")
+        
+        # Try specially formatted URLs for conjunction data
+        special_urls = [
+            # Try directly accessing CDMs without date filtering
+            f"{self.BASE_URL}/basicspacedata/query/class/cdm/format/json/orderby/CDM_TCA%20desc/limit/{limit}",
+            # Try using a different date format
+            f"{self.BASE_URL}/basicspacedata/query/class/cdm/format/json/TCA/>{start_date}/limit/{limit}",
+            # Try using the satcat with specific filtering
+            f"{self.BASE_URL}/basicspacedata/query/class/satcat/format/json/orderby/TCA%20desc/limit/{limit}"
         ]
         
-        # Try all possible endpoints
-        for endpoint in endpoints:
+        for url in special_urls:
             try:
-                print(f"Trying conjunction endpoint: {endpoint}")
-                # Handle different endpoint formats with slashes or underscores
-                if "/" in endpoint:
-                    category, class_name = endpoint.split("/")
-                    query_url = f"{self.BASE_URL}/{category}/query/class/{class_name}/format/json/CDM_TCA/>{start_date}/CDM_TCA/<{end_date}/orderby/CDM_TCA%20desc/limit/{limit}"
+                print(f"Trying special URL: {url}")
+                response = self.session.get(url)
+                if response.status_code == 200:
+                    data = response.json()
+                    if isinstance(data, list) and len(data) > 0:
+                        df = pd.DataFrame(data)
+                        print(f"Special URL returned {len(df)} rows")
+                        if len(df.columns) > 3:  # Basic validation
+                            return df
+            except Exception as e:
+                print(f"Error with special URL {url}: {e}")
+        
+        # As a last resort, check the API schema to find the right endpoint
+        try:
+            print("Checking Space-Track API schema for conjunction data endpoints...")
+            schema_url = f"{self.BASE_URL}/basicspacedata/modeldef"
+            response = self.session.get(schema_url)
+            if response.status_code == 200:
+                schema = response.json()
+                found_models = []
+                
+                for model in schema:
+                    if isinstance(model, dict) and "model" in model:
+                        model_name = model.get("model", "")
+                        if any(keyword in model_name.lower() for keyword in ["cdm", "conjunction", "approach"]):
+                            found_models.append(model_name)
+                            print(f"Found potential conjunction model: {model_name}")
+                            # Print fields if available
+                            if "fields" in model:
+                                date_fields = [
+                                    f.get("field") for f in model.get("fields", [])
+                                    if "date" in f.get("field", "").lower() or "time" in f.get("field", "").lower()
+                                ]
+                                if date_fields:
+                                    print(f"  Potential date fields for filtering: {date_fields}")
+                
+                if found_models:
+                    print(f"Based on schema, try these models for conjunction data: {found_models}")
                 else:
-                    query_url = f"{self.BASE_URL}/basicspacedata/query/class/{endpoint}/format/json/CDM_TCA/>{start_date}/CDM_TCA/<{end_date}/orderby/CDM_TCA%20desc/limit/{limit}"
-                
-                # Add debug info
-                print(f"Requesting URL: {query_url}")
-                
-                # Make the request
-                response = self.session.get(query_url)
-                response.raise_for_status()
-                data = response.json()
-                
-                # If we get here, the request was successful
-                print(f"Successfully retrieved data from endpoint: {endpoint}")
-                
-                # Validate that we received actual data
-                if isinstance(data, list) and len(data) > 0:
-                    df = pd.DataFrame(data)
+                    print("No conjunction-related models found in the schema")
                     
-                    # Additional check to ensure the DataFrame has the expected structure
-                    # Must contain at least one key field related to conjunction data
-                    required_fields = ['CDM_TCA', 'MISS_DISTANCE', 'PC', 'CREATED', 'TCA']
-                    if any(field in df.columns for field in required_fields):
-                        return df
-                    else:
-                        print(f"Data received from {endpoint} does not appear to be conjunction data")
-                elif isinstance(data, dict) and data.get('data') and isinstance(data['data'], list):
-                    # Some API endpoints wrap data in a 'data' key
-                    df = pd.DataFrame(data['data'])
-                    
-                    # Same validation as above
-                    required_fields = ['CDM_TCA', 'MISS_DISTANCE', 'PC', 'CREATED', 'TCA']
-                    if any(field in df.columns for field in required_fields):
-                        return df
-                    else:
-                        print(f"Data received from {endpoint} does not appear to be conjunction data")
-                else:
-                    print(f"Endpoint {endpoint} returned empty data or unexpected format")
-                
-            except requests.exceptions.RequestException as e:
-                print(f"Error fetching conjunction data using {endpoint}: {e}")
-                # Continue to the next endpoint
+        except Exception as e:
+            print(f"Error checking schema: {e}")
         
         # If all attempts fail, inform the user
-        print("All conjunction data endpoints failed. Please check Space-Track API access permissions.")
+        print("All conjunction data endpoints failed.")
+        print(f"Attempted {len(attempted_endpoints)} different combinations.")
         print("This may be due to API changes or your account not having access to conjunction data.")
+        print("Please check your Space-Track.org credentials and permissions.")
         return pd.DataFrame()
             
     def get_boxscore_data(self, limit=100):
