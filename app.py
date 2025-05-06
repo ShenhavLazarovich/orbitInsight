@@ -17,6 +17,74 @@ st.set_page_config(
     layout="wide",
 )
 
+# Apply custom styling to replace the Replit runner icon with satellite icon
+def replace_replit_running_icon():
+    st.markdown("""
+    <style>
+    /* Target the Replit runner icon in the header */
+    .runner-header-icon svg,
+    .run-status-indicator {
+        display: none !important;
+    }
+    
+    /* Add our own satellite icon */
+    .runner-header-icon::before,
+    .run-status-indicator::before {
+        content: "🛰️";
+        font-size: 1.2rem;
+        margin-right: 0.5rem;
+        animation: satellite-spin 4s linear infinite;
+        display: inline-block;
+    }
+    
+    @keyframes satellite-spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
+    /* Style running text */
+    .run-status-running::after {
+        content: "SATELLITE ACTIVE...";
+        font-weight: bold;
+        color: #4CAF50;
+    }
+    
+    /* Hide the original RUNNING... text */
+    .run-status-running > span {
+        display: none !important;
+    }
+    
+    /* Also inject our styling for the loading spinner */
+    .stSpinner > div {
+        border-top-color: #1e88e5 !important;
+        border-right-color: transparent !important;
+        border-bottom-color: transparent !important;
+        border-left-color: transparent !important;
+    }
+    
+    /* Change the webview loading icon */
+    @keyframes orbit {
+        0% { transform: rotate(0deg) translateX(12px) rotate(0deg); }
+        100% { transform: rotate(360deg) translateX(12px) rotate(-360deg); }
+    }
+    
+    .loading-icon::before {
+        content: "🛰️";
+        font-size: 24px;
+        animation: orbit 2s linear infinite;
+        position: absolute;
+        display: block;
+    }
+    
+    .loading-icon > * {
+        display: none !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+# Apply the custom styling
+replace_replit_running_icon()
+
 # Add a custom satellite-themed loading animation using pure CSS
 def add_satellite_css():
     st.markdown("""
