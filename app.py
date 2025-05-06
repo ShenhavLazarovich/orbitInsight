@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import os
+import random
 from datetime import datetime, timedelta
 import plotly.express as px
 
@@ -25,29 +26,150 @@ def add_satellite_css():
         padding: 20px;
         border-radius: 5px;
         margin: 10px 0;
-        background-color: rgba(0, 0, 0, 0.05);
+        background-color: rgba(0, 0, 0, 0.1);
+        position: relative;
+        height: 150px;
     }
     
-    .satellite-icon {
-        font-size: 40px;
-        margin-bottom: 10px;
-        animation: satellite-orbit 4s infinite linear;
-        display: inline-block;
+    /* Space background styles */
+    .space-background {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: #0c1445;
+        overflow: hidden;
+        border-radius: 5px;
+        z-index: 0;
     }
     
-    .earth-icon {
-        font-size: 25px;
-        margin-right: 15px;
-        display: inline-block;
+    /* Stars styles */
+    .star {
+        position: absolute;
+        background-color: white;
+        border-radius: 50%;
+        animation: twinkle 2s infinite alternate;
     }
     
-    @keyframes satellite-orbit {
+    @keyframes twinkle {
+        0% { opacity: 0.3; }
+        100% { opacity: 1; }
+    }
+    
+    /* Planet styles */
+    .planet {
+        position: absolute;
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        background: linear-gradient(45deg, #1e5799, #207cca);
+        box-shadow: 0 0 20px 2px rgba(32, 124, 202, 0.3);
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 1;
+    }
+    
+    /* Planet rings */
+    .planet-rings {
+        position: absolute;
+        width: 70px;
+        height: 20px;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%) rotate(15deg);
+        border: 2px solid rgba(255, 255, 255, 0.2);
+        border-radius: 50%;
+        z-index: 2;
+    }
+    
+    /* Satellite styles */
+    .satellite {
+        position: absolute;
+        width: 24px;
+        height: 12px;
+        background-color: #f5f5f5;
+        border-radius: 2px;
+        left: 50%;
+        top: 50%;
+        transform-origin: center center;
+        animation: orbit-satellite 8s linear infinite;
+        z-index: 3;
+    }
+    
+    /* Satellite solar panels */
+    .satellite:before, .satellite:after {
+        content: '';
+        position: absolute;
+        width: 18px;
+        height: 4px;
+        background-color: #ff9800;
+        top: 4px;
+    }
+    
+    .satellite:before {
+        left: -18px;
+    }
+    
+    .satellite:after {
+        right: -18px;
+    }
+    
+    @keyframes orbit-satellite {
         0% {
-            transform: rotate(0deg) translateX(20px) rotate(0deg);
+            transform: translate(-50%, -50%) rotate(0deg) translateX(60px) rotate(0deg);
         }
         100% {
-            transform: rotate(360deg) translateX(20px) rotate(-360deg);
+            transform: translate(-50%, -50%) rotate(360deg) translateX(60px) rotate(-360deg);
         }
+    }
+    
+    /* Shooting star */
+    .shooting-star {
+        position: absolute;
+        width: 4px;
+        height: 4px;
+        background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,1) 50%, rgba(255,255,255,0) 100%);
+        border-radius: 50%;
+        opacity: 0;
+        top: 20%;
+        left: 20%;
+        animation: shooting 4s linear infinite;
+        transform: rotate(45deg);
+    }
+    
+    @keyframes shooting {
+        0% {
+            transform: translateX(0) translateY(0) rotate(45deg) scale(1);
+            opacity: 0;
+        }
+        5% {
+            opacity: 1;
+        }
+        20% {
+            transform: translateX(120px) translateY(120px) rotate(45deg) scale(0.2);
+            opacity: 0;
+        }
+        100% {
+            transform: translateX(120px) translateY(120px) rotate(45deg) scale(0.2);
+            opacity: 0;
+        }
+    }
+    
+    /* Loading message */
+    .loading-message {
+        position: relative;
+        color: white;
+        font-weight: bold;
+        margin-top: 100px;
+        z-index: 5;
+        animation: pulse 1.5s infinite;
+    }
+    
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
     }
     </style>
     """, unsafe_allow_html=True)
@@ -57,13 +179,30 @@ add_satellite_css()
 
 # Function to display satellite loading animation
 def satellite_loading(message="Loading satellite data..."):
+    # Generate 10 random stars for the background
+    stars_html = ""
+    for _ in range(10):
+        # Random position and size for each star
+        left = random.randint(5, 95)
+        top = random.randint(5, 95)
+        size = random.randint(1, 3)
+        delay = random.randint(0, 20) / 10  # Random delay for twinkling
+        
+        stars_html += f"""
+        <div class="star" style="left: {left}%; top: {top}%; width: {size}px; height: {size}px; 
+        animation-delay: {delay}s"></div>
+        """
+    
     return st.markdown(f"""
     <div class="satellite-container">
-        <div>
-            <span class="earth-icon">🌎</span>
-            <span class="satellite-icon">🛰️</span>
+        <div class="space-background">
+            {stars_html}
+            <div class="planet"></div>
+            <div class="planet-rings"></div>
+            <div class="satellite"></div>
+            <div class="shooting-star"></div>
         </div>
-        <p>{message}</p>
+        <div class="loading-message">{message}</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -79,14 +218,31 @@ def satellite_spinner(text="Loading satellite data..."):
             self.placeholder = placeholder
             
         def __enter__(self):
+            # Generate random stars for the background
+            stars_html = ""
+            for _ in range(10):
+                # Random position and size for each star
+                left = random.randint(5, 95)
+                top = random.randint(5, 95)
+                size = random.randint(1, 3)
+                delay = random.randint(0, 20) / 10  # Random delay for twinkling
+                
+                stars_html += f"""
+                <div class="star" style="left: {left}%; top: {top}%; width: {size}px; height: {size}px; 
+                animation-delay: {delay}s"></div>
+                """
+            
             # Show the animation
             self.placeholder.markdown(f"""
             <div class="satellite-container">
-                <div>
-                    <span class="earth-icon">🌎</span>
-                    <span class="satellite-icon">🛰️</span>
+                <div class="space-background">
+                    {stars_html}
+                    <div class="planet"></div>
+                    <div class="planet-rings"></div>
+                    <div class="satellite"></div>
+                    <div class="shooting-star"></div>
                 </div>
-                <p>{self.text}</p>
+                <div class="loading-message">{self.text}</div>
             </div>
             """, unsafe_allow_html=True)
             
