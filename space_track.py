@@ -3,6 +3,10 @@ import time
 import requests
 import pandas as pd
 from datetime import datetime, timedelta
+import warnings
+
+# Suppress SGP4 deprecation warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 class SpaceTrackClient:
     """

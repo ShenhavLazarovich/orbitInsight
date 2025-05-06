@@ -2,7 +2,15 @@ import os
 import pandas as pd
 from sqlalchemy import create_engine, text
 from datetime import datetime, timedelta
-import space_track as st
+import traceback
+
+# Import space_track module with error handling
+try:
+    import space_track as st
+    SPACE_TRACK_AVAILABLE = True
+except ImportError:
+    print("Space-Track module not available or has dependency issues.")
+    SPACE_TRACK_AVAILABLE = False
 
 def get_database_connection():
     """
@@ -56,20 +64,24 @@ def get_satellites(engine):
         print(f"Error querying local database: {e}")
     
     # If no satellites found in the database, try to fetch from Space-Track API
-    try:
-        # Check if we have Space-Track credentials
-        if os.getenv("SPACETRACK_USERNAME") and os.getenv("SPACETRACK_PASSWORD"):
-            print("Fetching satellite data from Space-Track.org...")
-            
-            # Get satellite data from Space-Track
-            satellite_list, _ = st.get_satellite_data(limit=20)
-            
-            # Extract just the IDs
-            if satellite_list:
-                return [sat['id'] for sat in satellite_list]
-            
-    except Exception as e:
-        print(f"Error fetching from Space-Track API: {e}")
+    if SPACE_TRACK_AVAILABLE:
+        try:
+            # Check if we have Space-Track credentials
+            if os.getenv("SPACETRACK_USERNAME") and os.getenv("SPACETRACK_PASSWORD"):
+                print("Fetching satellite data from Space-Track.org...")
+                
+                # Get satellite data from Space-Track
+                satellite_list, _ = st.get_satellite_data(limit=20)
+                
+                # Extract just the IDs
+                if satellite_list:
+                    return [sat['id'] for sat in satellite_list]
+                
+        except Exception as e:
+            print(f"Error fetching from Space-Track API: {e}")
+            traceback.print_exc()
+    else:
+        print("Space-Track module is not available.")
     
     # If nothing worked, return a default list of known NORAD IDs
     # ISS, Hubble, GOES-16, Landsat-8, Terra
@@ -127,9 +139,19 @@ def get_trajectory_data(engine, satellite_id, start_date, end_date, alert_types)
     if not db_data.empty:
         return db_data
     
-    # If no data in database, try Space-Track API
-    print(f"No data found in local database for satellite {satellite_id}. Trying Space-Track API...")
+    # If no data in database, try Space-Track API if available
+    print(f"No data found in local database for satellite {satellite_id}.")
     
+    if not SPACE_TRACK_AVAILABLE:
+        print("Space-Track module is not available.")
+        return pd.DataFrame(columns=[
+            'satellite_id', 'timestamp', 'x', 'y', 'z', 
+            'velocity_x', 'velocity_y', 'velocity_z',
+            'altitude', 'alert_type'
+        ])
+    
+    print("Trying Space-Track API...")
+        
     # Check if we have Space-Track credentials
     if not (os.getenv("SPACETRACK_USERNAME") and os.getenv("SPACETRACK_PASSWORD")):
         print("Space-Track credentials not found. Please set SPACETRACK_USERNAME and SPACETRACK_PASSWORD")
@@ -162,6 +184,7 @@ def get_trajectory_data(engine, satellite_id, start_date, end_date, alert_types)
             
     except Exception as e:
         print(f"Error fetching from Space-Track API: {e}")
+        traceback.print_exc()
     
     # If all attempts fail, return empty DataFrame with expected structure
     return pd.DataFrame(columns=[
