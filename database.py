@@ -47,7 +47,7 @@ def get_satellites(engine):
         engine: SQLAlchemy database engine
         
     Returns:
-        Dictionary of satellite information with {id: name} pairs
+        Dictionary of satellite information with {id: name} pairs, sorted by launch date
     """
     satellites_dict = {}
     
@@ -74,14 +74,16 @@ def get_satellites(engine):
     except Exception as e:
         print(f"Error querying local database: {e}")
     
-    # Add default well-known satellites with their names
+    # Add default well-known satellites with their names and approximate launch dates
     default_satellites = {
-        "25544": "ISS (International Space Station)",
-        "20580": "Hubble Space Telescope",
-        "41866": "GOES-16 (Geostationary Operational Environmental Satellite)",
-        "39084": "Landsat-8 (Earth Observation Satellite)",
-        "25994": "Terra (Earth Observing System Flagship)"
+        "25544": "ISS (International Space Station) (Launched: 1998-11-20)",
+        "20580": "Hubble Space Telescope (Launched: 1990-04-24)",
+        "41866": "GOES-16 (Geostationary Operational Environmental Satellite) (Launched: 2016-11-19)",
+        "39084": "Landsat-8 (Earth Observation Satellite) (Launched: 2013-02-11)",
+        "25994": "Terra (Earth Observing System Flagship) (Launched: 1999-12-18)"
     }
+    
+    satellite_info_list = []  # Will store satellites with their info for sorting
     
     # Also get satellites from Space-Track API regardless if we found some in the database
     if SPACE_TRACK_AVAILABLE:
@@ -91,27 +93,103 @@ def get_satellites(engine):
                 print("Fetching satellite data from Space-Track.org...")
                 
                 # Get satellite data from Space-Track
-                satellite_list, _ = st.get_satellite_data(limit=20)
+                satellite_list, _ = st.get_satellite_data(limit=50)  # Get more satellites
                 
-                # Extract IDs and names
+                # Process the results
                 if satellite_list:
                     print(f"Found {len(satellite_list)} satellites from Space-Track API")
                     for sat in satellite_list:
                         if 'id' in sat and 'name' in sat:
-                            satellites_dict[sat['id']] = sat['name']
+                            # Add to our structured list for sorting
+                            launch_date = sat.get('launch_date', '1900-01-01')  # Default old date if unknown
+                            satellite_info_list.append({
+                                'id': sat['id'],
+                                'name': sat['name'],
+                                'launch_date': launch_date
+                            })
                 else:
                     print("No satellites found from Space-Track API")
                     # Add default satellites if Space-Track returns empty list
-                    satellites_dict.update(default_satellites)
+                    for sat_id, name in default_satellites.items():
+                        # Extract launch date from name for sorting
+                        launch_date = '1900-01-01'  # Default
+                        if 'Launched:' in name:
+                            try:
+                                launch_str = name.split('Launched:')[1].strip()
+                                launch_date = launch_str.strip('() ')
+                            except:
+                                pass
+                        
+                        satellite_info_list.append({
+                            'id': sat_id,
+                            'name': name,
+                            'launch_date': launch_date
+                        })
                 
         except Exception as e:
             print(f"Error fetching from Space-Track API: {e}")
             traceback.print_exc()
             # Add default satellites if Space-Track fails
-            satellites_dict.update(default_satellites)
+            for sat_id, name in default_satellites.items():
+                # Extract launch date from name for sorting
+                launch_date = '1900-01-01'  # Default
+                if 'Launched:' in name:
+                    try:
+                        launch_str = name.split('Launched:')[1].strip()
+                        launch_date = launch_str.strip('() ')
+                    except:
+                        pass
+                
+                satellite_info_list.append({
+                    'id': sat_id,
+                    'name': name,
+                    'launch_date': launch_date
+                })
     else:
         print("Space-Track module is not available, using default satellite list")
-        satellites_dict.update(default_satellites)
+        # Add default satellites if Space-Track not available
+        for sat_id, name in default_satellites.items():
+            # Extract launch date from name for sorting
+            launch_date = '1900-01-01'  # Default
+            if 'Launched:' in name:
+                try:
+                    launch_str = name.split('Launched:')[1].strip()
+                    launch_date = launch_str.strip('() ')
+                except:
+                    pass
+            
+            satellite_info_list.append({
+                'id': sat_id,
+                'name': name,
+                'launch_date': launch_date
+            })
+    
+    # Add database satellites to the list too (with default launch date for sorting)
+    for sat_id, name in satellites_dict.items():
+        # Skip if already in the list
+        if sat_id in [s['id'] for s in satellite_info_list]:
+            continue
+            
+        satellite_info_list.append({
+            'id': sat_id,
+            'name': name,
+            'launch_date': '1900-01-01'  # Default old date for unknown database satellites
+        })
+    
+    # Sort by launch date (newest first)
+    try:
+        # Convert dates to sortable format and sort
+        satellite_info_list.sort(
+            key=lambda x: pd.to_datetime(x['launch_date'], errors='coerce') 
+                          or pd.Timestamp('1900-01-01'),  # Handle invalid dates
+            reverse=True  # Newest first
+        )
+    except Exception as e:
+        print(f"Error sorting satellites by launch date: {e}")
+        traceback.print_exc()
+    
+    # Convert sorted list back to dictionary
+    satellites_dict = {sat['id']: sat['name'] for sat in satellite_info_list}
     
     # If we still have no satellites, use the default list
     if not satellites_dict:

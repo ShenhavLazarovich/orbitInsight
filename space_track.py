@@ -98,7 +98,8 @@ class SpaceTrackClient:
         if not self.authenticated and not self.authenticate():
             raise ConnectionError("Failed to authenticate with Space-Track.org")
             
-        query_url = f"{self.BASE_URL}/basicspacedata/query/class/satcat/format/json/orderby/NORAD_CAT_ID%20asc/limit/{limit}"
+        # Order by launch date descending (newest first)
+        query_url = f"{self.BASE_URL}/basicspacedata/query/class/satcat/format/json/orderby/LAUNCH_DATE%20desc/limit/{limit}"
             
         try:
             response = self.session.get(query_url)
@@ -238,13 +239,27 @@ def get_satellite_data(satellite_ids=None, start_date=None, end_date=None, limit
             # Get catalog of satellites for selection
             satcat = client.get_satellite_catalog(limit=limit)
             if not satcat.empty:
-                # Convert satellite catalog to dashboard-friendly format
+                # Convert satellite catalog to dashboard-friendly format with launch dates
                 satellites = []
                 for _, sat in satcat.iterrows():
                     if 'NORAD_CAT_ID' in sat and 'OBJECT_NAME' in sat:
+                        # Include launch date if available
+                        launch_date = sat.get('LAUNCH_DATE', 'Unknown')
+                        # Create display name with launch date if available
+                        display_name = sat['OBJECT_NAME']
+                        if launch_date and launch_date != 'Unknown':
+                            try:
+                                # Format nicely if it's a valid date
+                                launch_date_obj = pd.to_datetime(launch_date)
+                                display_name = f"{sat['OBJECT_NAME']} (Launched: {launch_date_obj.strftime('%Y-%m-%d')})"
+                            except:
+                                # Use as is if can't parse
+                                display_name = f"{sat['OBJECT_NAME']} (Launched: {launch_date})"
+                        
                         satellites.append({
                             'id': sat['NORAD_CAT_ID'],
-                            'name': sat['OBJECT_NAME']
+                            'name': display_name,
+                            'launch_date': launch_date
                         })
                 return satellites, pd.DataFrame()
             

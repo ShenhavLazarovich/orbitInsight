@@ -84,7 +84,38 @@ st.session_state['selected_satellite_name'] = selected_satellite_display
 # Time period selection
 st.sidebar.subheader("Time Period")
 today = datetime.now()
-default_start_date = today - timedelta(days=7)
+
+# Set appropriate date ranges based on satellite selection
+# Extract launch date if available in satellite name
+launch_date_match = None
+if "selected_satellite_name" in st.session_state:
+    satellite_name = st.session_state["selected_satellite_name"]
+    if "Launched:" in satellite_name:
+        try:
+            launch_str = satellite_name.split("Launched:")[1].strip()
+            launch_date_str = launch_str.strip("() ")
+            launch_date_match = pd.to_datetime(launch_date_str)
+        except:
+            pass
+
+# Set default dates based on selected satellite
+if launch_date_match:
+    # If we have a launch date, suggest a period after launch
+    # If it's an old satellite, just show last week
+    if (today - launch_date_match).days > 30:
+        default_start_date = today - timedelta(days=7)
+        date_suggestion = "Showing data for the past week"
+    else:
+        # For recently launched satellites, show from launch date
+        default_start_date = launch_date_match
+        date_suggestion = f"Showing data since launch date: {launch_date_match.strftime('%Y-%m-%d')}"
+else:
+    # Default to last week if no launch date available
+    default_start_date = today - timedelta(days=7)
+    date_suggestion = "Showing data for the past week"
+
+# Display date suggestion
+st.sidebar.info(date_suggestion)
 
 start_date = st.sidebar.date_input(
     "Start Date",
