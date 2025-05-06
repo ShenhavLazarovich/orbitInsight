@@ -16,6 +16,65 @@ st.set_page_config(
     layout="wide",
 )
 
+# Custom satellite loading animation
+# Add CSS and JS for the satellite loading animation
+def load_satellite_animation():
+    with open("static/satellite_loading.css", "r") as css_file:
+        css = css_file.read()
+    
+    with open("static/satellite_loading.js", "r") as js_file:
+        js = js_file.read()
+    
+    st.markdown(f"""
+        <style>{css}</style>
+        <script>{js}</script>
+    """, unsafe_allow_html=True)
+
+    # Create a satellite loading animation that can be triggered via JavaScript
+    st.markdown("""
+    <div id="satellite-loading-container"></div>
+    
+    <script>
+    function showSatelliteLoading(message) {
+        const container = document.getElementById('satellite-loading-container');
+        window.currentLoader = window.createSatelliteLoader(container, message);
+    }
+    
+    function hideSatelliteLoading() {
+        if (window.currentLoader) {
+            window.currentLoader();
+            window.currentLoader = null;
+        }
+    }
+    </script>
+    """, unsafe_allow_html=True)
+
+# Load the custom animation
+load_satellite_animation()
+
+# Custom spinner replacement that uses our satellite animation
+def satellite_spinner(text="Loading satellite data..."):
+    # This creates a decorator-like context manager
+    class SatelliteSpinnerContextManager:
+        def __init__(self, text):
+            self.text = text
+            
+        def __enter__(self):
+            st.markdown(f"""
+            <script>
+                showSatelliteLoading("{self.text}");
+            </script>
+            """, unsafe_allow_html=True)
+            
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            st.markdown("""
+            <script>
+                hideSatelliteLoading();
+            </script>
+            """, unsafe_allow_html=True)
+            
+    return SatelliteSpinnerContextManager(text)
+
 # Main title
 st.title("Satellite Trajectory Analysis Dashboard")
 
@@ -159,8 +218,8 @@ else:
 
     # Load data button
     if st.sidebar.button("Load Data"):
-        # Show loading spinner
-        with st.spinner("Loading trajectory data..."):
+        # Show our custom satellite loading animation instead of the default spinner
+        with satellite_spinner(f"Loading trajectory data for satellite {selected_satellite}..."):
             try:
                 # Get data from database or Space-Track
                 df = db.get_trajectory_data(
