@@ -118,7 +118,7 @@ def plot_3d_trajectory(df):
             mode='lines+markers',
             marker=dict(
                 size=2,
-                color=range(len(df_sorted)),
+                color=list(range(len(df_sorted))),
                 colorscale='Viridis',
                 opacity=0.8
             ),
