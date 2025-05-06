@@ -16,64 +16,85 @@ st.set_page_config(
     layout="wide",
 )
 
-# Custom satellite loading animation
-# Add CSS and JS for the satellite loading animation
-def load_satellite_animation():
-    with open("static/satellite_loading.css", "r") as css_file:
-        css = css_file.read()
-    
-    with open("static/satellite_loading.js", "r") as js_file:
-        js = js_file.read()
-    
-    st.markdown(f"""
-        <style>{css}</style>
-        <script>{js}</script>
-    """, unsafe_allow_html=True)
-
-    # Create a satellite loading animation that can be triggered via JavaScript
+# Add a custom satellite-themed loading animation using pure CSS
+def add_satellite_css():
     st.markdown("""
-    <div id="satellite-loading-container"></div>
-    
-    <script>
-    function showSatelliteLoading(message) {
-        const container = document.getElementById('satellite-loading-container');
-        window.currentLoader = window.createSatelliteLoader(container, message);
+    <style>
+    .satellite-container {
+        text-align: center;
+        padding: 20px;
+        border-radius: 5px;
+        margin: 10px 0;
+        background-color: rgba(0, 0, 0, 0.05);
     }
     
-    function hideSatelliteLoading() {
-        if (window.currentLoader) {
-            window.currentLoader();
-            window.currentLoader = null;
+    .satellite-icon {
+        font-size: 40px;
+        margin-bottom: 10px;
+        animation: satellite-orbit 4s infinite linear;
+        display: inline-block;
+    }
+    
+    .earth-icon {
+        font-size: 25px;
+        margin-right: 15px;
+        display: inline-block;
+    }
+    
+    @keyframes satellite-orbit {
+        0% {
+            transform: rotate(0deg) translateX(20px) rotate(0deg);
+        }
+        100% {
+            transform: rotate(360deg) translateX(20px) rotate(-360deg);
         }
     }
-    </script>
+    </style>
     """, unsafe_allow_html=True)
 
-# Load the custom animation
-load_satellite_animation()
+# Add the CSS
+add_satellite_css()
 
-# Custom spinner replacement that uses our satellite animation
+# Function to display satellite loading animation
+def satellite_loading(message="Loading satellite data..."):
+    return st.markdown(f"""
+    <div class="satellite-container">
+        <div>
+            <span class="earth-icon">🌎</span>
+            <span class="satellite-icon">🛰️</span>
+        </div>
+        <p>{message}</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+# Custom spinner replacement
 def satellite_spinner(text="Loading satellite data..."):
+    # Create a placeholder for our custom animation
+    placeholder = st.empty()
+    
     # This creates a decorator-like context manager
     class SatelliteSpinnerContextManager:
-        def __init__(self, text):
+        def __init__(self, text, placeholder):
             self.text = text
+            self.placeholder = placeholder
             
         def __enter__(self):
-            st.markdown(f"""
-            <script>
-                showSatelliteLoading("{self.text}");
-            </script>
+            # Show the animation
+            self.placeholder.markdown(f"""
+            <div class="satellite-container">
+                <div>
+                    <span class="earth-icon">🌎</span>
+                    <span class="satellite-icon">🛰️</span>
+                </div>
+                <p>{self.text}</p>
+            </div>
             """, unsafe_allow_html=True)
             
         def __exit__(self, exc_type, exc_val, exc_tb):
-            st.markdown("""
-            <script>
-                hideSatelliteLoading();
-            </script>
-            """, unsafe_allow_html=True)
+            # Clear the animation
+            self.placeholder.empty()
             
-    return SatelliteSpinnerContextManager(text)
+    return SatelliteSpinnerContextManager(text, placeholder)
 
 # Main title
 st.title("Satellite Trajectory Analysis Dashboard")
@@ -443,7 +464,7 @@ else:
             limit = st.sidebar.slider("Number of records", 10, 500, 100)
             
             if st.sidebar.button("Load Catalog Data"):
-                with st.spinner(f"Loading satellite catalog data..."):
+                with satellite_spinner(f"Loading satellite catalog data..."):
                     try:
                         data = db.get_space_track_data(engine, "catalog", limit=limit)
                         if not data.empty:
@@ -522,7 +543,7 @@ else:
                 
         elif data_category == "Launch Sites":
             if st.sidebar.button("Load Launch Sites Data"):
-                with st.spinner("Loading launch sites data..."):
+                with satellite_spinner("Loading launch sites data..."):
                     try:
                         data = db.get_space_track_data(engine, "launch_sites")
                         if not data.empty:
@@ -591,7 +612,7 @@ else:
             limit = st.sidebar.slider("Number of records", 10, 500, 100)
             
             if st.sidebar.button("Load Decay Data"):
-                with st.spinner("Loading decay data..."):
+                with satellite_spinner("Loading decay data..."):
                     try:
                         data = db.get_space_track_data(engine, "decay", days_back=days_back, limit=limit)
                         if not data.empty:
@@ -659,7 +680,7 @@ else:
             limit = st.sidebar.slider("Number of records", 10, 500, 100)
             
             if st.sidebar.button("Load Conjunction Data"):
-                with st.spinner("Loading conjunction data..."):
+                with satellite_spinner("Loading conjunction data..."):
                     try:
                         # Display info about multiple endpoint attempts
                         status_container = st.empty()
@@ -830,7 +851,7 @@ else:
                 
         elif data_category == "Boxscore Data":
             if st.sidebar.button("Load Boxscore Data"):
-                with st.spinner("Loading boxscore data..."):
+                with satellite_spinner("Loading boxscore data..."):
                     try:
                         data = db.get_space_track_data(engine, "boxscore")
                         if not data.empty:
