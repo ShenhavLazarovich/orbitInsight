@@ -49,6 +49,8 @@ def get_satellites(engine):
     Returns:
         List of satellite IDs
     """
+    satellites = []
+    
     # First try to get satellites from the local database
     try:
         # Try to get distinct satellite IDs from the trajectories table
@@ -60,16 +62,20 @@ def get_satellites(engine):
         
         with engine.connect() as conn:
             result = conn.execute(query)
-            satellites = [row[0] for row in result]
-        
-        # If we found satellites in the database, return them
-        if satellites:
-            return satellites
+            db_satellites = [row[0] for row in result]
+            
+        # Add database satellites to our list
+        if db_satellites:
+            print(f"Found {len(db_satellites)} satellites in database: {db_satellites}")
+            satellites.extend(db_satellites)
                 
     except Exception as e:
         print(f"Error querying local database: {e}")
     
-    # If no satellites found in the database, try to fetch from Space-Track API
+    # Add default well-known NORAD IDs (these will be removed if duplicates later)
+    default_satellites = ["25544", "20580", "41866", "39084", "25994"]  # ISS, Hubble, GOES-16, Landsat-8, Terra
+    
+    # Also get satellites from Space-Track API regardless if we found some in the database
     if SPACE_TRACK_AVAILABLE:
         try:
             # Check if we have Space-Track credentials
@@ -81,17 +87,34 @@ def get_satellites(engine):
                 
                 # Extract just the IDs
                 if satellite_list:
-                    return [sat['id'] for sat in satellite_list]
+                    space_track_ids = [sat['id'] for sat in satellite_list]
+                    print(f"Found {len(space_track_ids)} satellites from Space-Track: {space_track_ids}")
+                    satellites.extend(space_track_ids)
+                else:
+                    print("No satellites found from Space-Track API")
                 
         except Exception as e:
             print(f"Error fetching from Space-Track API: {e}")
             traceback.print_exc()
+            # Add default satellites if Space-Track fails
+            satellites.extend(default_satellites)
     else:
-        print("Space-Track module is not available.")
+        print("Space-Track module is not available, using default satellite list")
+        satellites.extend(default_satellites)
     
-    # If nothing worked, return a default list of known NORAD IDs
-    # ISS, Hubble, GOES-16, Landsat-8, Terra
-    return ["25544", "20580", "41866", "39084", "25994"]
+    # Remove duplicates while preserving order
+    unique_satellites = []
+    for sat in satellites:
+        if sat not in unique_satellites:
+            unique_satellites.append(sat)
+    
+    # If we still have no satellites, use the default list
+    if not unique_satellites:
+        print("No satellites found, using default list")
+        unique_satellites = default_satellites
+        
+    print(f"Returning {len(unique_satellites)} satellites")
+    return unique_satellites
 
 def get_alert_types(engine):
     """
