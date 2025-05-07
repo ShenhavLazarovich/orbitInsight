@@ -549,6 +549,36 @@ def get_trajectory_data(engine, satellite_id, start_date, end_date, alert_types)
     Returns:
         Pandas DataFrame with trajectory data
     """
+    # Special case handling for OpSat3000
+    if satellite_id == "99001":
+        print("OpSat3000 selected - checking for sample trajectory data")
+        # Check if we already have data for this satellite
+        try:
+            # First check if data exists in the database
+            query = text("""
+                SELECT COUNT(*) FROM satellite_trajectories 
+                WHERE satellite_id = :satellite_id
+            """)
+            
+            with engine.connect() as conn:
+                result = conn.execute(query, {"satellite_id": satellite_id})
+                count = result.scalar()
+                
+            # If no data exists, create sample data
+            if count == 0:
+                print("No data found for OpSat3000. Creating sample trajectory points.")
+                create_sample_satellite_data(
+                    engine, 
+                    "99001", 
+                    "OpSat3000 (Earth Observation Satellite)", 
+                    7071000,  # orbit_radius (700 km altitude)
+                    100,      # orbit_period in minutes
+                    0.1       # altitude variation
+                )
+        except Exception as e:
+            print(f"Error checking for OpSat3000 data: {e}")
+            traceback.print_exc()
+            
     # First try local database
     db_data = get_trajectory_data_from_db(engine, satellite_id, start_date, end_date, alert_types)
     
