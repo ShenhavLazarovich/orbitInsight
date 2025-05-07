@@ -1148,9 +1148,13 @@ else:
                 I built this application to make satellite tracking and space object data more 
                 accessible and insightful for researchers, educators, and space enthusiasts.</p>
                 
+                <p>OrbitInsight connects directly with official SpaceTrack.org databases to provide 
+                real-time access to satellite trajectory data, conjunction alerts, launch information, 
+                and other critical space situational awareness metrics.</p>
+                
                 <h3>Support My Work</h3>
                 <p>If you find OrbitInsight useful for your research or educational purposes, 
-                please consider supporting my work:</p>
+                please consider supporting my work to help maintain and enhance this platform:</p>
                 
                 <a href="https://buymeacoffee.com/shenhavlazarovich" target="_blank">
                     <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" 
