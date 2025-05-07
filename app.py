@@ -603,18 +603,30 @@ else:
     
     # Display a spinner while searching
     search_spinner = st.sidebar.empty()
-    if search_button or (search_query and len(search_query) >= 3):
+    
+    # Set minimum characters for auto-search
+    min_search_chars = 2
+    
+    if search_button or (search_query and len(search_query) >= min_search_chars):
         search_spinner.info(f"Searching for satellites matching '{search_query}'...")
     
     try:
-        # Get available satellites with names
-        satellites_dict = db.get_satellites(engine, search_query if search_button or len(search_query) >= 3 else None)
+        # Always get the base satellite list first
+        base_satellites = db.get_satellites(engine, None)
+        
+        # Then do a specific search if requested
+        if search_button or (search_query and len(search_query) >= min_search_chars):
+            specific_satellites = db.get_satellites(engine, search_query)
+            # Merge the dictionaries, with specific search results taking precedence
+            satellites_dict = {**base_satellites, **specific_satellites}
+        else:
+            satellites_dict = base_satellites
         
         if not satellites_dict:
             st.warning("No satellite data found. Make sure Space-Track.org credentials are set.")
             st.stop()
         else:
-            if search_button or (search_query and len(search_query) >= 3):
+            if search_button or (search_query and len(search_query) >= min_search_chars):
                 search_spinner.success(f"Found satellites matching '{search_query}'")
             else:
                 search_spinner.empty()
@@ -656,17 +668,70 @@ else:
         # Use the first satellite as default if no matches (to avoid errors)
         selected_satellite_display = satellite_options[0]
     else:
+        # Store previous selection to detect changes
+        prev_selection = st.session_state.get('selected_satellite_display', filtered_satellites[0])
+        
+        # Try to maintain selection in filtered list, if not available use first item
+        if prev_selection in filtered_satellites:
+            default_idx = filtered_satellites.index(prev_selection)
+        else:
+            default_idx = 0
+        
         selected_satellite_display = st.sidebar.selectbox(
             "Select Satellite",
             options=filtered_satellites,
-            help="Choose a satellite to view its trajectory data"
+            index=default_idx,
+            on_change=lambda: st.session_state.update({'satellite_selected': True}),
+            help="Choose a satellite to view its trajectory data. Type to search, press Enter to select."
         )
+        
+        # Store current selection for next render
+        st.session_state['selected_satellite_display'] = selected_satellite_display
     
     # Extract the actual satellite ID from the selection
     selected_satellite = display_name_to_id[selected_satellite_display]
     
     # Store the display name for later use
     st.session_state['selected_satellite_name'] = selected_satellite_display
+    
+    # Auto-load data when selection changes through typing and Enter
+    selection_changed = st.session_state.get('satellite_selected', False)
+    if selection_changed:
+        # Reset the flag for next time
+        st.session_state['satellite_selected'] = False
+        
+        # Auto-load the data for the selected satellite
+        with satellite_spinner(f"Loading trajectory data for satellite {selected_satellite}..."):
+            try:
+                # Get data from database or Space-Track
+                df = db.get_trajectory_data(
+                    engine, 
+                    selected_satellite, 
+                    start_date, 
+                    end_date, 
+                    selected_alert_types
+                )
+                
+                if df.empty:
+                    if has_space_track_credentials:
+                        st.warning(f"No data found for satellite {selected_satellite} in the selected date range. Try a different satellite or date range.")
+                    else:
+                        st.warning("No data found. Please enter Space-Track.org credentials to access real satellite data.")
+                else:
+                    # Store the data in session state for reuse
+                    st.session_state['trajectory_data'] = df
+                    st.session_state['satellite_id'] = selected_satellite
+                    
+                    # Add satellite name to session state if available
+                    if 'satellite_name' in df.columns:
+                        satellite_name = df['satellite_name'].iloc[0]
+                        st.session_state['satellite_name'] = satellite_name
+                    
+                    st.success(f"Loaded {len(df)} trajectory points for satellite {selected_satellite}")
+                
+            except Exception as e:
+                st.error(f"Error retrieving data: {str(e)}")
+                # Don't stop here, allow user to try again
 
     # Time period selection
     st.sidebar.subheader("Time Period")
