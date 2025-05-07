@@ -2704,7 +2704,65 @@ else:
                 if data.empty:
                     st.warning("The boxscore data returned is empty. Try a different data category.")
                 else:
-                    # Display raw data first to ensure something is visible
+                    # Add key insights card at the top first
+                    st.markdown('<div class="insights-card">', unsafe_allow_html=True)
+                    st.subheader("📊 Boxscore Data Insights")
+                    
+                    try:
+                        # Generate insights about the boxscore data
+                        insights = []
+                        
+                        # Total space objects
+                        total_objects = 0
+                        total_col = [col for col in data.columns if 'TOTAL' in col.upper() and 'COUNTRY' not in col.upper()]
+                        if total_col and total_col[0] in data.columns:
+                            total_objects = data[total_col[0]].sum()
+                            insights.append(f"**Total Space Objects Tracked:** {int(total_objects):,}")
+                        
+                        # Debris vs Payloads
+                        debris_col = [col for col in data.columns if 'DEBRIS' in col.upper() or 'JUNK' in col.upper()]
+                        if debris_col and debris_col[0] in data.columns:
+                            total_debris = data[debris_col[0]].sum()
+                            if total_objects > 0:
+                                debris_percent = (total_debris / total_objects) * 100
+                                insights.append(f"**Space Debris:** {int(total_debris):,} objects ({debris_percent:.1f}% of tracked objects)")
+                        
+                        # Active payloads
+                        payload_col = [col for col in data.columns if 'PAYLOAD' in col.upper()]
+                        if payload_col and payload_col[0] in data.columns:
+                            total_payloads = data[payload_col[0]].sum()
+                            if total_objects > 0:
+                                payload_percent = (total_payloads / total_objects) * 100
+                                insights.append(f"**Active Payloads:** {int(total_payloads):,} ({payload_percent:.1f}% of tracked objects)")
+                        
+                        # Countries with space objects
+                        country_col = [col for col in data.columns if 'COUNTRY' in col.upper()]
+                        if country_col and country_col[0] in data.columns:
+                            unique_countries = data[country_col[0]].nunique()
+                            insights.append(f"**Number of Countries with Space Objects:** {unique_countries}")
+                            
+                            # Top countries by object count
+                            if total_col and total_col[0] in data.columns:
+                                top_countries = data.sort_values(by=total_col[0], ascending=False).head(3)
+                                top_countries_list = []
+                                for _, row in top_countries.iterrows():
+                                    country = row[country_col[0]]
+                                    count = row[total_col[0]]
+                                    percent = (count / total_objects) * 100 if total_objects > 0 else 0
+                                    top_countries_list.append(f"{country}: {int(count):,} ({percent:.1f}%)")
+                                
+                                insights.append(f"**Top 3 Countries by Object Count:**  \n" + "  \n".join(top_countries_list))
+                        
+                        # Show insights
+                        for insight in insights:
+                            st.markdown(insight)
+                            
+                    except Exception as e:
+                        st.warning(f"Could not generate all insights: {str(e)}")
+                    
+                    st.markdown('</div>', unsafe_allow_html=True)
+                    
+                    # Display raw data after insights
                     st.dataframe(data, use_container_width=True)
                     
                     # Add field explanations in an expandable section
