@@ -1138,38 +1138,47 @@ else:
         """, unsafe_allow_html=True)
         
         # About Me section with custom styling
-        st.markdown("""
-        <div class="about-developer">
-            <div class="developer-content">
-                <h2>About the Developer</h2>
-                <p>Hello! I'm <strong>Shenhav Lazarovich</strong>, the developer behind OrbitInsight.</p>
+        st.markdown('<div class="about-developer">', unsafe_allow_html=True)
+        st.markdown('<div class="developer-content">', unsafe_allow_html=True)
         
-                <p>As a space technology enthusiast with a background in aerospace data analysis, 
-                I built this application to make satellite tracking and space object data more 
-                accessible and insightful for researchers, educators, and space enthusiasts.</p>
+        st.markdown('<h2>About the Developer</h2>', unsafe_allow_html=True)
+        st.write("Hello! I'm **Shenhav Lazarovich**, the developer behind OrbitInsight.")
         
-                <p>OrbitInsight connects directly with official SpaceTrack.org databases to provide 
-                real-time access to satellite trajectory data, conjunction alerts, launch information, 
-                and other critical space situational awareness metrics.</p>
-            
-                <h3>Support My Work</h3>
-                <p>If you find OrbitInsight useful for your research or educational purposes, 
-                please consider supporting my work to help maintain and enhance this platform:</p>
-                
-                <div style="text-align: center; margin: 20px 0;">
-                    <a href="https://buymeacoffee.com/shenhavlazarovich" target="_blank">
-                        <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" 
-                            alt="Buy Me A Coffee" 
-                            style="height: 42px; width: auto; border-radius: 5px; box-shadow: 0 4px 8px rgba(0,0,0,0.3);">
-                    </a>
-                </div>
-                
-                <p class="thank-you">
-                    Thank you for using OrbitInsight!
-                </p>
+        st.write("""
+        As a space technology enthusiast with a background in aerospace data analysis, 
+        I built this application to make satellite tracking and space object data more 
+        accessible and insightful for researchers, educators, and space enthusiasts.
+        
+        OrbitInsight connects directly with official SpaceTrack.org databases to provide 
+        real-time access to satellite trajectory data, conjunction alerts, launch information, 
+        and other critical space situational awareness metrics.
+        """)
+        
+        st.markdown('<h3>Support My Work</h3>', unsafe_allow_html=True)
+        st.write("""
+        If you find OrbitInsight useful for your research or educational purposes, 
+        please consider supporting my work to help maintain and enhance this platform:
+        """)
+        
+        # Center the Buy Me a Coffee button
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            st.markdown("""
+            <div style="text-align: center;">
+                <a href="https://buymeacoffee.com/shenhavlazarovich" target="_blank">
+                    <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" 
+                        alt="Buy Me A Coffee" 
+                        style="height: 42px; width: auto; border-radius: 5px; box-shadow: 0 4px 8px rgba(0,0,0,0.3);">
+                </a>
             </div>
-        </div>
-        """, unsafe_allow_html=True)
+            """, unsafe_allow_html=True)
+        
+        # Thank you message with styling
+        st.markdown('<p class="thank-you">Thank you for using OrbitInsight!</p>', unsafe_allow_html=True)
+        
+        # Close the developer content and about-developer divs
+        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
             
         st.markdown('</div>', unsafe_allow_html=True)  # Close welcome-container
     else:
