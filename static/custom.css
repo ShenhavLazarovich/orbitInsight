@@ -1,53 +1,92 @@
-/* General styling improvements */
+/* Main OrbitInsight styling */
 .main-header {
     display: flex;
     align-items: center;
     padding: 1rem 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid rgba(79, 139, 249, 0.2);
     margin-bottom: 1.5rem;
+    background: rgba(16, 24, 39, 0.6);
+    border-radius: 10px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .main-header-logo {
     width: 3.5rem;
     height: 3.5rem;
-    margin-right: 1rem;
+    margin-right: 1.2rem;
+    filter: drop-shadow(0 0 8px rgba(79, 139, 249, 0.6));
+    animation: pulse-glow 3s infinite alternate;
+}
+
+@keyframes pulse-glow {
+    0% { filter: drop-shadow(0 0 5px rgba(79, 139, 249, 0.4)); }
+    100% { filter: drop-shadow(0 0 12px rgba(79, 139, 249, 0.8)); }
 }
 
 .main-header-content h1 {
     margin: 0;
     padding: 0;
-    font-size: 2.2rem;
-    font-weight: 600;
+    font-size: 2.4rem;
+    font-weight: 700;
     line-height: 1.2;
+    background: linear-gradient(90deg, #4F8BF9, #15BFFF);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 2px 10px rgba(21, 191, 255, 0.3);
 }
 
 .main-header-content p {
     margin: 0.3rem 0 0 0;
-    opacity: 0.7;
-    font-size: 1rem;
+    opacity: 0.8;
+    font-size: 1.1rem;
+    color: #e0e7ff;
 }
 
-/* Card styling */
+/* OrbitInsight Card styling */
 .streamlit-card {
-    border-radius: 10px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    padding: 1.5rem;
-    margin-bottom: 1rem;
-    background: rgba(26, 35, 50, 0.5);
-    transition: transform 0.2s, box-shadow 0.2s;
+    border-radius: 12px;
+    border: 1px solid rgba(79, 139, 249, 0.15);
+    padding: 1.8rem;
+    margin-bottom: 1.5rem;
+    background: rgba(16, 24, 39, 0.7);
+    transition: transform 0.3s, box-shadow 0.3s;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    position: relative;
+    overflow: hidden;
+}
+
+/* Add subtle space particle background to cards */
+.streamlit-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: 
+        radial-gradient(circle at 10% 20%, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+        radial-gradient(circle at 50% 60%, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+        radial-gradient(circle at 80% 30%, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    background-size: 60px 60px;
+    opacity: 0.5;
+    z-index: -1;
 }
 
 .streamlit-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(21, 191, 255, 0.15);
+    border-color: rgba(79, 139, 249, 0.3);
 }
 
 .streamlit-card h3 {
     margin-top: 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid rgba(79, 139, 249, 0.2);
     padding-bottom: 0.75rem;
-    margin-bottom: 1rem;
+    margin-bottom: 1.2rem;
     color: #4F8BF9;
+    font-weight: 600;
+    letter-spacing: 0.5px;
 }
 
 /* Button styling */
@@ -81,46 +120,157 @@
     margin-bottom: 2rem;
 }
 
+/* OrbitInsight Stats Display */
 .data-stats {
-    background: rgba(20, 25, 37, 0.5);
+    background: rgba(16, 24, 39, 0.6);
     border-radius: 10px;
-    padding: 1rem;
+    padding: 1.25rem;
     margin-bottom: 1.5rem;
+    border: 1px solid rgba(79, 139, 249, 0.15);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    text-align: center;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.data-stats:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 15px rgba(21, 191, 255, 0.15);
+    border-color: rgba(79, 139, 249, 0.3);
 }
 
 .stat-value {
-    font-size: 1.8rem;
-    font-weight: 600;
+    font-size: 2rem;
+    font-weight: 700;
     color: #4F8BF9;
+    text-shadow: 0 0 10px rgba(79, 139, 249, 0.4);
+    margin-bottom: 0.3rem;
+    background: linear-gradient(90deg, #4F8BF9, #15BFFF);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
 }
 
 .stat-label {
     font-size: 0.8rem;
-    opacity: 0.7;
+    opacity: 0.8;
     text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #e0e7ff;
 }
 
-/* Visualization enhancements */
+/* OrbitInsight Visualization enhancements */
 .chart-container {
-    background: rgba(16, 20, 30, 0.5);
-    border-radius: 10px;
-    padding: 1rem;
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    background: rgba(16, 24, 39, 0.6);
+    border-radius: 12px;
+    padding: 1.25rem;
+    margin-top: 0.5rem;
+    margin-bottom: 1.5rem;
+    border: 1px solid rgba(79, 139, 249, 0.15);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    position: relative;
+    overflow: hidden;
 }
 
-/* Filter and control panels */
+.chart-container::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #4F8BF9, #15BFFF);
+    opacity: 0.7;
+}
+
+/* OrbitInsight Filter and control panels */
 .filter-panel {
-    background: rgba(30, 40, 60, 0.4);
-    border-radius: 8px;
-    padding: 1rem;
-    margin-bottom: 1rem;
+    background: rgba(16, 24, 39, 0.6);
+    border-radius: 10px;
+    padding: 1.25rem;
+    margin-bottom: 1.25rem;
+    border: 1px solid rgba(79, 139, 249, 0.15);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .filter-title {
     font-weight: 600;
-    margin-bottom: 0.5rem;
-    font-size: 1rem;
+    margin-bottom: 0.75rem;
+    font-size: 1.1rem;
     color: #4F8BF9;
+    display: flex;
+    align-items: center;
+    text-shadow: 0 0 8px rgba(79, 139, 249, 0.3);
+}
+
+.filter-title::before {
+    content: '●';
+    font-size: 0.8rem;
+    margin-right: 0.5rem;
+    color: #15BFFF;
+    text-shadow: 0 0 5px rgba(21, 191, 255, 0.7);
+}
+
+/* Global theme enhancements for OrbitInsight */
+.stApp {
+    background: linear-gradient(135deg, #0a0f1a 0%, #121b2e 100%);
+}
+
+/* Add floating stars to the app background */
+.stApp::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: 
+        radial-gradient(circle at 10% 20%, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+        radial-gradient(circle at 50% 60%, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+        radial-gradient(circle at 80% 30%, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    background-size: 150px 150px;
+    opacity: 0.4;
+    z-index: -1;
+    pointer-events: none;
+}
+
+/* Improved metrics */
+[data-testid="stMetric"] {
+    background: rgba(16, 24, 39, 0.6);
+    border-radius: 10px;
+    padding: 1rem;
+    border: 1px solid rgba(79, 139, 249, 0.15);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+[data-testid="stMetric"]:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(21, 191, 255, 0.15);
+    border-color: rgba(79, 139, 249, 0.3);
+}
+
+[data-testid="stMetric"] > div:first-child {
+    color: #e0e7ff !important;
+}
+
+[data-testid="stMetric"] > div:nth-child(2) {
+    font-size: 1.8rem !important;
+    font-weight: 700 !important;
+    color: #4F8BF9 !important;
+}
+
+/* Improved sidebar elements */
+[data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
+    gap: 0.5rem;
+}
+
+[data-testid="stSidebar"] [data-testid="stVerticalBlock"] > div {
+    border-radius: 8px;
+    padding: 0.5rem;
+    transition: background-color 0.2s;
+}
+
+[data-testid="stSidebar"] [data-testid="stVerticalBlock"] > div:hover {
+    background-color: rgba(79, 139, 249, 0.05);
 }
 
 /* Responsive improvements */
@@ -133,5 +283,13 @@
     .main-header-logo {
         margin-right: 0;
         margin-bottom: 0.5rem;
+    }
+    
+    .data-stats {
+        padding: 0.75rem;
+    }
+    
+    .stat-value {
+        font-size: 1.5rem;
     }
 }

@@ -919,16 +919,22 @@ if 'trajectory_data' in st.session_state:
                 st.plotly_chart(fig, use_container_width=True)
     
     with tab3:
+        st.markdown('<div class="streamlit-card">', unsafe_allow_html=True)
         st.subheader("Trajectory Analysis")
         
         # Basic statistics
-        st.write("### Basic Statistics")
+        st.markdown('<div class="filter-panel">', unsafe_allow_html=True)
+        st.markdown('<div class="filter-title">Basic Statistics</div>', unsafe_allow_html=True)
         numeric_cols = df.select_dtypes(include=['float64', 'int64']).columns
         stats_df = an.calculate_basic_stats(df[numeric_cols])
+        st.markdown('<div class="chart-container">', unsafe_allow_html=True)
         st.dataframe(stats_df, use_container_width=True)
+        st.markdown('</div></div>', unsafe_allow_html=True)
         
         # Trajectory Metrics
-        st.write("### Trajectory Metrics")
+        st.markdown('<div class="filter-panel">', unsafe_allow_html=True)
+        st.markdown('<div class="filter-title">Trajectory Metrics</div>', unsafe_allow_html=True)
+        
         metrics = an.calculate_trajectory_metrics(df)
         
         col1, col2, col3 = st.columns(3)
@@ -943,38 +949,57 @@ if 'trajectory_data' in st.session_state:
         with col3:
             st.metric("Duration (hours)", f"{metrics['duration']:.2f}")
             st.metric("Alerts Count", metrics['alerts_count'])
+            
+        st.markdown('</div>', unsafe_allow_html=True)
         
         # Alert Analysis
         if 'alert_type' in df.columns and df['alert_type'].notna().any():
-            st.write("### Alert Distribution")
+            st.markdown('<div class="filter-panel">', unsafe_allow_html=True)
+            st.markdown('<div class="filter-title">Alert Distribution</div>', unsafe_allow_html=True)
+            st.markdown('<div class="chart-container">', unsafe_allow_html=True)
             fig = an.plot_alert_distribution(df)
             st.plotly_chart(fig, use_container_width=True)
+            st.markdown('</div></div>', unsafe_allow_html=True)
         
         # Trajectory Anomaly Detection
-        st.write("### Anomaly Detection")
-        anomaly_param = st.selectbox(
-            "Select Parameter for Anomaly Detection",
-            options=[col for col in numeric_cols if col not in ['satellite_id', 'alert_id']],
-            help="Select parameter to analyze for anomalies"
-        )
+        st.markdown('<div class="filter-panel">', unsafe_allow_html=True)
+        st.markdown('<div class="filter-title">Anomaly Detection</div>', unsafe_allow_html=True)
         
-        anomaly_threshold = st.slider(
-            "Anomaly Threshold (standard deviations)",
-            min_value=1.0,
-            max_value=5.0,
-            value=3.0,
-            step=0.1,
-            help="Number of standard deviations from mean to consider as anomaly"
-        )
+        col1, col2 = st.columns([2, 1])
+        with col1:
+            anomaly_param = st.selectbox(
+                "Select Parameter for Anomaly Detection",
+                options=[col for col in numeric_cols if col not in ['satellite_id', 'alert_id']],
+                help="Select parameter to analyze for anomalies"
+            )
         
+        with col2:
+            anomaly_threshold = st.slider(
+                "Anomaly Threshold (σ)",
+                min_value=1.0,
+                max_value=5.0,
+                value=3.0,
+                step=0.1,
+                help="Number of standard deviations from mean to consider as anomaly"
+            )
+        
+        st.markdown('<div class="chart-container">', unsafe_allow_html=True)
         anomaly_df, anomaly_fig = an.detect_anomalies(df, anomaly_param, anomaly_threshold)
         st.plotly_chart(anomaly_fig, use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
         
         if not anomaly_df.empty:
-            st.write(f"Found {len(anomaly_df)} anomalies in {anomaly_param}")
+            st.success(f"Found {len(anomaly_df)} anomalies in {anomaly_param}")
+            st.markdown('<div class="chart-container">', unsafe_allow_html=True)
             st.dataframe(anomaly_df, use_container_width=True)
+            st.markdown('</div>', unsafe_allow_html=True)
         else:
             st.info(f"No anomalies detected in {anomaly_param} with the current threshold.")
+            
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Close the main card
+        st.markdown('</div>', unsafe_allow_html=True)
 
 else:
     # Show appropriate content based on selected data category
@@ -982,29 +1007,74 @@ else:
         # Display instructions if no data is loaded
         st.info("👈 Select a satellite and time period, then click 'Load Data' to begin.")
         
-        # Show sample information about the trajectory analysis
-        st.write("""
-        ## Satellite Trajectory Analysis
+        # Show welcome content with cards
+        st.markdown('<div class="welcome-container">', unsafe_allow_html=True)
         
-        This view provides tools for analyzing satellite trajectory data from the Combined Space Operations Center (CSpOC).
+        # Main welcome header
+        st.markdown("""
+        <div class="welcome-header">
+            <h1>Welcome to OrbitInsight</h1>
+            <p>Advanced Satellite Trajectory Analysis Platform</p>
+        </div>
+        """, unsafe_allow_html=True)
         
-        ### Features:
-    - Connect to Space-Track.org API to fetch real satellite data
-    - Store and cache data in a local database for faster access
-    - Retrieve and filter data by satellite ID, time period, and alert type
-    - View trajectory data in tabular format
-    - Visualize satellite paths in 2D and 3D
-    - Analyze trajectory parameters and detect anomalies
-    - Export data to CSV format
-    
-    ### How It Works:
-    1. If you have Space-Track.org credentials, the app will fetch real-time satellite data
-    2. Data is calculated using the SGP4 orbital propagator from TLE (Two-Line Element) sets
-    3. Results are cached in a local database for improved performance
-    4. Visualizations and analysis are performed on the real orbital data
-    
-    To get started, use the sidebar to select a satellite and time period, then click the "Load Data" button.
-    """)
+        # Features section with cards
+        st.markdown('<div class="welcome-features">', unsafe_allow_html=True)
+        st.markdown('<h2>Platform Capabilities</h2>', unsafe_allow_html=True)
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("""
+            <div class="feature-card">
+                <div class="feature-icon">📡</div>
+                <h3>Real-time Data Access</h3>
+                <p>Connect to Space-Track.org API to retrieve actual satellite trajectory data from the Combined Space Operations Center (CSpOC).</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            st.markdown("""
+            <div class="feature-card">
+                <div class="feature-icon">🔍</div>
+                <h3>Advanced Analysis</h3>
+                <p>Apply statistical methods to analyze trajectory patterns, detect anomalies, and calculate key orbital metrics.</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col2:
+            st.markdown("""
+            <div class="feature-card">
+                <div class="feature-icon">🌐</div>
+                <h3>Interactive Visualization</h3>
+                <p>Explore satellite trajectories with dynamic 2D and 3D visualizations showing position, altitude, and other parameters.</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            st.markdown("""
+            <div class="feature-card">
+                <div class="feature-icon">💾</div>
+                <h3>Optimized Performance</h3>
+                <p>Cached database storage provides fast access to historical data with SGP4 orbital propagation for accurate calculations.</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        # How to get started section
+        st.markdown('<div class="welcome-tutorial">', unsafe_allow_html=True)
+        st.markdown('<h2>Getting Started</h2>', unsafe_allow_html=True)
+        
+        st.markdown("""
+        <ol class="tutorial-steps">
+            <li><strong>Enter Credentials:</strong> Provide your Space-Track.org login details to access real satellite data</li>
+            <li><strong>Select Satellite:</strong> Choose from available satellites in the sidebar menu</li>
+            <li><strong>Set Time Range:</strong> Define the analysis period using the date selectors</li>
+            <li><strong>Load Data:</strong> Click the "Load Data" button to retrieve trajectory information</li>
+            <li><strong>Explore Results:</strong> Navigate through data tables, visualizations, and analysis tools</li>
+        </ol>
+        """, unsafe_allow_html=True)
+        
+        st.markdown('</div>', unsafe_allow_html=True)  # Close welcome-tutorial
+        st.markdown('</div>', unsafe_allow_html=True)  # Close welcome-features
+        st.markdown('</div>', unsafe_allow_html=True)  # Close welcome-container
     else:
         # Handle other data categories
         st.sidebar.info(f"Loading {data_category} information...")
