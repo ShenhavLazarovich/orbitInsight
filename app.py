@@ -917,9 +917,12 @@ if 'trajectory_data' in st.session_state:
             </div>
             """, unsafe_allow_html=True)
         
-        # Add simple data filtering options in a styled card
+        # Add simple data filtering options in a styled card with proper containment
         st.markdown('<div class="filter-panel">', unsafe_allow_html=True)
         st.markdown('<div class="filter-title">Data Filtering Options</div>', unsafe_allow_html=True)
+        
+        # Create filter contents in a container
+        st.markdown('<div class="filter-content">', unsafe_allow_html=True)
         col1, col2 = st.columns(2)
         with col1:
             rows_to_display = st.number_input("Rows to display", min_value=10, max_value=1000, value=100, step=10)
@@ -927,7 +930,9 @@ if 'trajectory_data' in st.session_state:
         with col2:
             sort_by = st.selectbox("Sort by", options=df.columns)
             sort_order = st.radio("Sort order", options=["Ascending", "Descending"], horizontal=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)  # Close filter-content
+        
+        st.markdown('</div>', unsafe_allow_html=True)  # Close filter-panel
         
         # Apply sorting
         if sort_order == "Ascending":

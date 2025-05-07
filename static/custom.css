@@ -195,15 +195,18 @@
 .filter-panel {
     background: rgba(16, 24, 39, 0.6);
     border-radius: 10px;
-    padding: 1.25rem;
+    padding: 1.5rem;
     margin-bottom: 1.25rem;
     border: 1px solid rgba(79, 139, 249, 0.15);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    overflow: hidden; /* Prevent content from escaping */
+    position: relative; /* Ensure proper positioning context */
+    width: 100%;       /* Ensure full width */
 }
 
 .filter-title {
     font-weight: 600;
-    margin-bottom: 0.75rem;
+    margin-bottom: 1rem;
     font-size: 1.1rem;
     color: #4F8BF9;
     display: flex;
@@ -499,6 +502,26 @@
     letter-spacing: 0.5px;
     font-weight: 500;
     text-shadow: 0 2px 10px rgba(79, 139, 249, 0.4);
+}
+
+/* Fix for content escaping containers */
+.filter-content {
+    width: 100%;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Fix for any text or content that might overflow */
+.stButton, .stRadio, .stSelectbox, .stNumberInput, .st-emotion-cache-1r6slb0 {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+}
+
+/* Force all streamlit elements to stay within their containers */
+div[data-testid="stVerticalBlock"] > div {
+    overflow: hidden !important;
+    width: 100% !important;
 }
 
 /* Responsive improvements */
