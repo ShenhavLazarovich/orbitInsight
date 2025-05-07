@@ -977,6 +977,45 @@ if 'trajectory_data' in st.session_state:
             st.metric("Duration (hours)", f"{metrics['duration']:.2f}")
             st.metric("Alerts Count", metrics['alerts_count'])
             
+        # Add detailed insights
+        if metrics['total_distance'] > 0:
+            orbit_insights = []
+            
+            # Calculate orbital period (approximation)
+            if 'duration' in metrics and metrics['duration'] > 0:
+                est_period_mins = metrics['duration'] * 60 / (max(1, metrics.get('orbits', 1)))
+                orbit_insights.append(f"**Estimated Orbital Period:** {est_period_mins:.1f} minutes per orbit")
+            
+            # Altitude stability
+            if 'max_altitude' in metrics and 'min_altitude' in metrics:
+                alt_diff = metrics['max_altitude'] - metrics['min_altitude']
+                alt_percent = (alt_diff / metrics['max_altitude']) * 100 if metrics['max_altitude'] > 0 else 0
+                
+                if alt_percent < 5:
+                    orbit_type = "nearly circular"
+                elif alt_percent < 15:
+                    orbit_type = "slightly elliptical"
+                else:
+                    orbit_type = "highly elliptical"
+                    
+                orbit_insights.append(f"**Orbit Type:** {orbit_type} ({alt_percent:.1f}% altitude variation)")
+            
+            # Speed insights
+            if 'avg_speed' in metrics and 'max_speed' in metrics and 'min_speed' in metrics:
+                speed_variation = metrics.get('max_speed', 0) - metrics.get('min_speed', 0)
+                orbit_insights.append(f"**Speed Variation:** {speed_variation:.2f} km/h ({speed_variation/metrics['avg_speed']*100:.1f}% of average)")
+            
+            # Alert density
+            if 'duration' in metrics and 'alerts_count' in metrics and metrics['duration'] > 0:
+                alerts_per_hour = metrics['alerts_count'] / metrics['duration']
+                orbit_insights.append(f"**Alert Frequency:** {alerts_per_hour:.2f} alerts per hour")
+                
+            # Display insights
+            if orbit_insights:
+                st.markdown("### Orbit Insights")
+                for insight in orbit_insights:
+                    st.markdown(insight)
+            
         st.markdown('</div>', unsafe_allow_html=True)
         
         # Alert Analysis
@@ -1536,6 +1575,47 @@ else:
                             labels={'Count': 'Number of Objects', 'Date': 'Re-entry Date'}
                         )
                         st.plotly_chart(fig, use_container_width=True)
+                        
+                        # Add detailed insights about decay patterns
+                        st.markdown("### Key Re-entry Insights")
+                        
+                        # Create list for insights
+                        decay_insights = []
+                        
+                        # Peak day
+                        if not daily_counts.empty:
+                            peak_day = daily_counts.loc[daily_counts['Count'].idxmax()]
+                            peak_date = peak_day['Date']
+                            peak_count = peak_day['Count']
+                            decay_insights.append(f"**Peak Re-entry Day:** {peak_date.strftime('%Y-%m-%d')} with {int(peak_count)} objects")
+                        
+                        # Calculate total objects
+                        total_decayed = len(decay_dates.dropna())
+                        decay_insights.append(f"**Total Objects Re-entered:** {total_decayed} in selected period")
+                        
+                        # Object types if available
+                        if 'OBJECT_TYPE' in data.columns:
+                            type_counts = data['OBJECT_TYPE'].value_counts()
+                            types_str = []
+                            for obj_type, count in type_counts.items():
+                                percent = (count / total_decayed) * 100
+                                types_str.append(f"{obj_type}: {count} ({percent:.1f}%)")
+                            
+                            decay_insights.append(f"**Re-entry by Object Type:**  \n" + "  \n".join(types_str))
+                        
+                        # Country analysis if available
+                        if 'COUNTRY' in data.columns:
+                            country_counts = data['COUNTRY'].value_counts().head(3)
+                            countries_str = []
+                            for country, count in country_counts.items():
+                                percent = (count / total_decayed) * 100
+                                countries_str.append(f"{country}: {count} ({percent:.1f}%)")
+                            
+                            decay_insights.append(f"**Top Countries with Re-entries:**  \n" + "  \n".join(countries_str))
+                        
+                        # Display all insights
+                        for insight in decay_insights:
+                            st.markdown(insight)
                     else:
                         st.warning("No valid decay date information available for visualization.")
                 
@@ -2052,6 +2132,24 @@ else:
                                 most_common_count = most_common.values[0]
                                 observations.append(f"**{unique_objects}** unique objects were involved in conjunction events.")
                                 observations.append(f"**{most_common_name}** was involved in the most conjunction events (**{most_common_count}** events).")
+                            
+                            # Top collision risk objects if probability data exists
+                            if 'PC' in data.columns:
+                                # Get objects with highest collision probability
+                                try:
+                                    data['PC'] = pd.to_numeric(data['PC'], errors='coerce')
+                                    high_risk_objects = data.sort_values(by='PC', ascending=False).head(3)
+                                    
+                                    if not high_risk_objects.empty:
+                                        risk_objects = []
+                                        for i, row in high_risk_objects.iterrows():
+                                            obj_name = row[main_obj_col]
+                                            prob = row['PC']
+                                            risk_objects.append(f"{obj_name}: {prob:.6f} probability")
+                                        
+                                        observations.append(f"**Highest Collision Risk Objects:**  \n" + "  \n".join(risk_objects))
+                                except Exception as pc_error:
+                                    pass  # Silently continue if this analysis fails
                         
                         # Time patterns
                         if 'CDM_TCA' in data.columns and not data['CDM_TCA'].isna().all():
@@ -2065,6 +2163,27 @@ else:
                                 max_day_count = daily_counts.max()
                                 if max_day_count > 1:
                                     observations.append(f"**{max_day}** had the highest number of conjunction events (**{max_day_count}** events).")
+                            
+                            # Time of day analysis
+                            hour_counts = data['CDM_TCA'].dt.hour.value_counts()
+                            if not hour_counts.empty:
+                                peak_hour = hour_counts.idxmax()
+                                peak_hour_count = hour_counts.max()
+                                
+                                # Convert to 12-hour format with AM/PM
+                                peak_hour_12 = f"{peak_hour % 12 or 12} {'AM' if peak_hour < 12 else 'PM'}"
+                                
+                                observations.append(f"**Peak Conjunction Hour:** {peak_hour_12} UTC ({peak_hour_count} events)")
+                                
+                                # Calculate hourly distribution for high-risk hours
+                                high_hours = hour_counts[hour_counts > hour_counts.mean()].sort_index()
+                                if not high_hours.empty and len(high_hours) < 24:
+                                    high_hours_str = []
+                                    for hour, count in high_hours.items():
+                                        hour_12 = f"{hour % 12 or 12} {'AM' if hour < 12 else 'PM'}"
+                                        high_hours_str.append(f"{hour_12}: {count}")
+                                    
+                                    observations.append(f"**High Activity Hours (UTC):**  \n" + "  \n".join(high_hours_str))
                         
                         # Distance patterns
                         if miss_dist_field:
@@ -2077,6 +2196,39 @@ else:
                             very_close = data[data[miss_dist_field] < 0.1].shape[0]
                             if very_close > 0:
                                 observations.append(f"**{very_close}** conjunction events had a miss distance less than **100 meters**.")
+                            
+                            # Distance statistics
+                            min_dist = data[miss_dist_field].min()
+                            mean_dist = data[miss_dist_field].mean()
+                            median_dist = data[miss_dist_field].median()
+                            
+                            observations.append(f"**Distance Statistics:**  \n" +
+                                               f"Minimum: {min_dist:.3f} km  \n" +
+                                               f"Mean: {mean_dist:.3f} km  \n" +
+                                               f"Median: {median_dist:.3f} km")
+                        
+                        # Relative velocity analysis if available
+                        vel_cols = [col for col in data.columns if any(term in col.upper() for term in ['SPEED', 'VEL', 'V_REL'])]
+                        if vel_cols:
+                            vel_col = vel_cols[0]
+                            # Convert to numeric
+                            data[vel_col] = pd.to_numeric(data[vel_col], errors='coerce')
+                            
+                            # Calculate velocity statistics
+                            min_vel = data[vel_col].min()
+                            max_vel = data[vel_col].max()
+                            mean_vel = data[vel_col].mean()
+                            
+                            observations.append(f"**Relative Velocity:**  \n" +
+                                              f"Minimum: {min_vel:.2f} km/s  \n" +
+                                              f"Maximum: {max_vel:.2f} km/s  \n" +
+                                              f"Average: {mean_vel:.2f} km/s")
+                            
+                            # Identify high-velocity conjunctions (potentially more damaging)
+                            high_vel = data[data[vel_col] > 10].shape[0]  # Arbitrary threshold of 10 km/s
+                            if high_vel > 0:
+                                high_vel_pct = (high_vel / len(data)) * 100
+                                observations.append(f"**{high_vel}** conjunction events ({high_vel_pct:.1f}%) had relative velocity greater than 10 km/s, which would cause catastrophic damage in case of collision.")
                     
                     except Exception as obs_error:
                         observations.append(f"_Note: Some observations could not be calculated due to data structure variations._")
@@ -2428,6 +2580,72 @@ else:
                 except Exception as viz_error:
                     st.error(f"Error during boxscore data visualization: {viz_error}")
                     st.info("The data structure from Space-Track may have changed. You can still view and download the raw data above.")
+                
+                # Add key insights for boxscore data
+                st.markdown("### Key Insights from Boxscore Data")
+                
+                insights = []
+                
+                # Calculate global statistics
+                try:
+                    # Total space objects
+                    if 'ORBITAL_TOTAL_COUNT' in data.columns:
+                        total_objects = data['ORBITAL_TOTAL_COUNT'].sum()
+                        insights.append(f"**Total Objects in Orbit:** {int(total_objects):,}")
+                    
+                    # Debris percentage
+                    if 'ORBITAL_DEBRIS_COUNT' in data.columns and 'ORBITAL_TOTAL_COUNT' in data.columns:
+                        total_debris = data['ORBITAL_DEBRIS_COUNT'].sum()
+                        debris_percent = (total_debris / total_objects * 100) if total_objects > 0 else 0
+                        insights.append(f"**Orbital Debris Percentage:** {debris_percent:.1f}% ({int(total_debris):,} objects)")
+                    
+                    # Payload percentage
+                    if 'ORBITAL_PAYLOAD_COUNT' in data.columns and 'ORBITAL_TOTAL_COUNT' in data.columns:
+                        total_payloads = data['ORBITAL_PAYLOAD_COUNT'].sum()
+                        payload_percent = (total_payloads / total_objects * 100) if total_objects > 0 else 0
+                        insights.append(f"**Active Payloads Percentage:** {payload_percent:.1f}% ({int(total_payloads):,} satellites)")
+                    
+                    # Top countries
+                    if country_col:
+                        top_countries = data.sort_values(by='ORBITAL_TOTAL_COUNT', ascending=False).head(3)
+                        top_countries_list = []
+                        
+                        for _, row in top_countries.iterrows():
+                            country_name = row[country_col]
+                            count = row['ORBITAL_TOTAL_COUNT']
+                            percent = (count / total_objects * 100) if total_objects > 0 else 0
+                            top_countries_list.append(f"{country_name}: {int(count):,} objects ({percent:.1f}%)")
+                        
+                        insights.append(f"**Top Space Object Contributors:**  \n" + "  \n".join(top_countries_list))
+                    
+                    # Decay rates
+                    if 'DECAYED_TOTAL_COUNT' in data.columns and 'TOTAL_COUNT' in data.columns:
+                        total_decayed = data['DECAYED_TOTAL_COUNT'].sum()
+                        total_all = data['TOTAL_COUNT'].sum()
+                        decay_rate = (total_decayed / total_all * 100) if total_all > 0 else 0
+                        insights.append(f"**Historical Decay Rate:** {decay_rate:.1f}% ({int(total_decayed):,} objects re-entered)")
+                    
+                    # Country with highest decay percentage
+                    if 'DECAYED_TOTAL_COUNT' in data.columns and 'TOTAL_COUNT' in data.columns and country_col:
+                        # Calculate decay percentage for each country
+                        data['DECAY_PERCENTAGE'] = data['DECAYED_TOTAL_COUNT'] / data['TOTAL_COUNT'] * 100
+                        # Find country with highest decay percentage (with minimum objects)
+                        high_decay = data[data['TOTAL_COUNT'] > 100].sort_values(by='DECAY_PERCENTAGE', ascending=False).head(1)
+                        
+                        if not high_decay.empty:
+                            country_name = high_decay.iloc[0][country_col]
+                            decay_percent = high_decay.iloc[0]['DECAY_PERCENTAGE']
+                            insights.append(f"**Highest Object Re-entry Rate:** {country_name} ({decay_percent:.1f}% of objects)")
+                
+                except Exception as insight_error:
+                    insights.append(f"_Note: Some insights could not be calculated due to data structure variations._")
+                
+                # Display insights
+                if insights:
+                    for insight in insights:
+                        st.markdown(insight)
+                else:
+                    st.info("No specific insights could be extracted from this boxscore data set.")
                 
                 # Allow CSV download
                 try:
