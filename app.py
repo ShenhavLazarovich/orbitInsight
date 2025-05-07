@@ -14,11 +14,11 @@ import utils
 # Set page configuration
 st.set_page_config(
     page_title="OrbitInsight",
-    page_icon="🛰️",
+    page_icon="./static/orbitinsight_logo.svg",
     layout="wide",
 )
 
-# Apply custom styling to replace the Replit runner icon with satellite icon
+# Apply custom styling to replace the Replit runner icon with our OrbitInsight logo
 def replace_replit_running_icon():
     st.markdown("""
     <style>
@@ -28,26 +28,31 @@ def replace_replit_running_icon():
         display: none !important;
     }
     
-    /* Add our own satellite icon */
+    /* Add our own OrbitInsight logo icon */
     .runner-header-icon::before,
     .run-status-indicator::before {
-        content: "🛰️";
-        font-size: 1.2rem;
+        content: "";
+        background-image: url('./static/orbitinsight_logo.svg');
+        background-size: contain;
+        background-repeat: no-repeat;
+        width: 24px;
+        height: 24px;
         margin-right: 0.5rem;
-        animation: satellite-spin 4s linear infinite;
+        animation: satellite-pulse 4s ease-in-out infinite;
         display: inline-block;
     }
     
-    @keyframes satellite-spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
+    @keyframes satellite-pulse {
+        0% { transform: scale(1); filter: brightness(1); }
+        50% { transform: scale(1.1); filter: brightness(1.2); }
+        100% { transform: scale(1); filter: brightness(1); }
     }
     
     /* Style running text */
     .run-status-running::after {
-        content: "SATELLITE ACTIVE...";
+        content: "ORBITINSIGHT ACTIVE...";
         font-weight: bold;
-        color: #4CAF50;
+        color: #4F8BF9;
     }
     
     /* Hide the original RUNNING... text */
@@ -57,7 +62,7 @@ def replace_replit_running_icon():
     
     /* Also inject our styling for the loading spinner */
     .stSpinner > div {
-        border-top-color: #1e88e5 !important;
+        border-top-color: #4F8BF9 !important;
         border-right-color: transparent !important;
         border-bottom-color: transparent !important;
         border-left-color: transparent !important;
@@ -70,8 +75,12 @@ def replace_replit_running_icon():
     }
     
     .loading-icon::before {
-        content: "🛰️";
-        font-size: 24px;
+        content: "";
+        background-image: url('./static/orbitinsight_logo.svg');
+        background-size: contain;
+        background-repeat: no-repeat;
+        width: 30px;
+        height: 30px;
         animation: orbit 2s linear infinite;
         position: absolute;
         display: block;
@@ -374,7 +383,7 @@ def add_custom_css():
 # Add the CSS
 add_custom_css()
 
-# Function to display satellite loading animation
+# Function to display satellite loading animation with our logo
 def satellite_loading(message="Loading satellite data..."):
     # Generate 10 random stars for the background
     stars_html = ""
@@ -396,7 +405,16 @@ def satellite_loading(message="Loading satellite data..."):
             {stars_html}
             <div class="planet"></div>
             <div class="planet-rings"></div>
-            <div class="satellite"></div>
+            <img src="./static/orbitinsight_logo.svg" class="orbitinsight-satellite" style="
+                position: absolute;
+                width: 40px;
+                height: 40px;
+                left: 50%;
+                top: 50%;
+                transform-origin: center center;
+                animation: orbit-satellite 8s linear infinite;
+                z-index: 3;
+            ">
             <div class="shooting-star"></div>
         </div>
         <div class="loading-message">{message}</div>
@@ -429,14 +447,23 @@ def satellite_spinner(text="Loading satellite data..."):
                 animation-delay: {delay}s"></div>
                 """
             
-            # Show the animation
+            # Show the animation with our logo
             self.placeholder.markdown(f"""
             <div class="satellite-container">
                 <div class="space-background">
                     {stars_html}
                     <div class="planet"></div>
                     <div class="planet-rings"></div>
-                    <div class="satellite"></div>
+                    <img src="./static/orbitinsight_logo.svg" class="orbitinsight-satellite" style="
+                        position: absolute;
+                        width: 40px;
+                        height: 40px;
+                        left: 50%;
+                        top: 50%;
+                        transform-origin: center center;
+                        animation: orbit-satellite 8s linear infinite;
+                        z-index: 3;
+                    ">
                     <div class="shooting-star"></div>
                 </div>
                 <div class="loading-message">{self.text}</div>
@@ -453,7 +480,7 @@ def satellite_spinner(text="Loading satellite data..."):
 st.markdown("""
 <div class="main-header">
     <div class="main-header-logo">
-        <img src="./satellite.svg" width="56" height="56" alt="OrbitInsight Logo">
+        <img src="./static/orbitinsight_logo.svg" width="68" height="68" alt="OrbitInsight Logo">
     </div>
     <div class="main-header-content">
         <h1>OrbitInsight</h1>
