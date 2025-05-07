@@ -354,23 +354,74 @@ data_category = st.radio(
 # Check for Space-Track credentials
 has_space_track_credentials = os.getenv("SPACETRACK_USERNAME") and os.getenv("SPACETRACK_PASSWORD")
 
-# If credentials are missing, show a form to collect them
-if not has_space_track_credentials:
-    st.warning("Space-Track.org credentials are required to fetch real satellite data.")
-    
-    with st.form("space_track_credentials"):
-        st.write("Please enter your Space-Track.org credentials:")
-        username = st.text_input("Username")
-        password = st.text_input("Password", type="password")
-        submitted = st.form_submit_button("Save Credentials")
+# Initialize session state for showing/hiding the credentials form
+if 'show_credentials_form' not in st.session_state:
+    st.session_state.show_credentials_form = not has_space_track_credentials
+
+# If credentials are missing or user wants to update them
+if st.session_state.show_credentials_form:
+    with st.expander("Space-Track.org Credentials", expanded=True):
+        st.info("""
+        ## Space-Track.org Credentials
         
-        if submitted and username and password:
-            # Set environment variables
-            os.environ["SPACETRACK_USERNAME"] = username
-            os.environ["SPACETRACK_PASSWORD"] = password
-            st.success("Credentials saved successfully! You can now access real satellite data.")
-            has_space_track_credentials = True
-            st.rerun()
+        Real satellite data is fetched from Space-Track.org, which requires credentials.
+        
+        **Don't have an account?** 
+        1. Visit [Space-Track.org](https://www.space-track.org) 
+        2. Click "Create Account" and complete the registration
+        3. Wait for approval email (usually within 24 hours)
+        4. Once approved, enter your credentials below
+        
+        Your credentials will be used only to fetch data and won't be stored permanently.
+        """)
+        
+        with st.form("space_track_credentials"):
+            username = st.text_input("Space-Track Username", 
+                                    value=os.getenv("SPACETRACK_USERNAME", ""),
+                                    help="Your Space-Track.org login username")
+            
+            password = st.text_input("Space-Track Password", 
+                                    type="password",
+                                    help="Your Space-Track.org password")
+            
+            col1, col2 = st.columns([1, 1])
+            with col1:
+                submitted = st.form_submit_button("Save Credentials", use_container_width=True)
+            with col2:
+                cancel = st.form_submit_button("Cancel", use_container_width=True)
+            
+            if submitted and username and password:
+                # Set environment variables
+                os.environ["SPACETRACK_USERNAME"] = username
+                os.environ["SPACETRACK_PASSWORD"] = password
+                
+                # Test the credentials
+                try:
+                    import space_track
+                    client = space_track.SpaceTrackClient()
+                    auth_success = client.authenticate()
+                    
+                    if auth_success:
+                        st.success("✅ Credentials verified and saved successfully! You can now access real satellite data.")
+                        has_space_track_credentials = True
+                        st.session_state.show_credentials_form = False
+                        st.rerun()
+                    else:
+                        st.error("❌ Authentication failed. Please check your credentials and try again.")
+                except Exception as e:
+                    st.error(f"❌ Error testing credentials: {str(e)}")
+            
+            elif submitted:
+                st.warning("⚠️ Please enter both username and password.")
+                
+            if cancel:
+                st.session_state.show_credentials_form = False
+                st.rerun()
+else:
+    # Show a button to update credentials if needed
+    if st.sidebar.button("Update Space-Track Credentials"):
+        st.session_state.show_credentials_form = True
+        st.rerun()
 
 # Sidebar for filters and controls
 st.sidebar.header("Data Filters")
@@ -1133,7 +1184,7 @@ else:
                             """)
                             
                             if not has_space_track_credentials:
-                                st.error("Space-Track.org credentials are required to access this data. Please set SPACETRACK_USERNAME and SPACETRACK_PASSWORD in your environment.")
+                                st.error("Space-Track.org credentials are required to access this data. Click the 'Update Space-Track Credentials' button in the sidebar to enter your credentials.")
                             
                             # Provide a link to Space-Track for manual checking
                             st.markdown("[Check Space-Track.org website directly](https://www.space-track.org)")
@@ -1148,7 +1199,7 @@ else:
                             st.info("The application is designed to try multiple alternative column names automatically.")
                         elif "Unauthorized" in error_msg or "401" in error_msg:
                             st.error("Authentication Error: Space-Track.org credentials are invalid or expired.")
-                            st.info("Please check your SPACETRACK_USERNAME and SPACETRACK_PASSWORD environment variables.")
+                            st.info("Please click the 'Update Space-Track Credentials' button in the sidebar to enter or update your credentials.")
                         elif "Timeout" in error_msg or "timed out" in error_msg.lower():
                             st.error("Timeout Error: Connection to Space-Track.org timed out.")
                             st.info("The service might be experiencing high load or network issues. Try again later.")
