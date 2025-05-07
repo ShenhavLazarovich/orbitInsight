@@ -332,15 +332,33 @@ def plot_altitude_profile(df):
             )
         )
     
+    # Calculate appropriate y-axis range based on data
+    min_alt = df['altitude'].min()
+    max_alt = df['altitude'].max()
+    
+    # Determine if we should display in km instead of meters for better readability
+    use_km = max_alt > 100000  # Use km if altitude exceeds 100km
+    
+    # Convert to km if needed
+    if use_km:
+        min_alt_display = min_alt / 1000
+        max_alt_display = max_alt / 1000
+        y_axis_title = 'Altitude (km)'
+        earth_radius_display = 6371  # Earth radius in km
+    else:
+        min_alt_display = min_alt
+        max_alt_display = max_alt
+        y_axis_title = 'Altitude (m)'
+        earth_radius_display = 6371000  # Earth radius in m
+    
     # Add Earth radius reference if altitude is in appropriate range
-    # Assuming altitude is in meters from Earth's surface
     if df['altitude'].median() > 100000:  # If altitude is likely in meters and in space
         fig.add_shape(
             type="line",
             x0=fig.data[0].x[0],
-            y0=6371000,  # Earth radius in meters
+            y0=earth_radius_display,  # Now uses the appropriate units
             x1=fig.data[0].x[-1],
-            y1=6371000,
+            y1=earth_radius_display,
             line=dict(
                 color="Blue",
                 width=1,
@@ -351,17 +369,42 @@ def plot_altitude_profile(df):
         
         fig.add_annotation(
             x=fig.data[0].x[0],
-            y=6371000,
-            text="Earth Radius (6371 km)",
+            y=earth_radius_display,
+            text=f"Earth Radius ({earth_radius_display:,} {'km' if use_km else 'm'})",
             showarrow=False,
             yshift=10
         )
     
-    # Update layout
+    # Add buffer for y-axis range (10% of data range)
+    y_range_buffer = (max_alt_display - min_alt_display) * 0.1
+    
+    # Ensure we don't have a zero or negative range
+    if max_alt_display - min_alt_display < (10 if use_km else 100):
+        y_range_buffer = 10 if use_km else 100  # Set minimum range
+    
+    # Update layout with properly scaled y-axis
     fig.update_layout(
         xaxis=dict(title='Time'),
-        yaxis=dict(title='Altitude (m)'),
+        yaxis=dict(
+            title=y_axis_title,
+            range=[max(0, min_alt_display - y_range_buffer), max_alt_display + y_range_buffer],  # Ensure never below 0
+            autorange=False  # Disable autorange to use our custom range
+        ),
         hovermode='closest'
     )
+    
+    # Update Earth radius reference to use correct units if it exists
+    if hasattr(fig.layout, 'shapes') and fig.layout.shapes:
+        for shape in fig.layout.shapes:
+            if hasattr(shape, 'line') and hasattr(shape.line, 'dash') and shape.line.dash == 'dash':
+                shape.y0 = earth_radius_display
+                shape.y1 = earth_radius_display
+                
+    # Update Earth radius annotation if it exists
+    if hasattr(fig.layout, 'annotations') and fig.layout.annotations:
+        for annotation in fig.layout.annotations:
+            if 'Earth Radius' in annotation.text:
+                annotation.y = earth_radius_display
+                annotation.text = f"Earth Radius ({earth_radius_display:,} {'km' if use_km else 'm'})"
     
     return fig
