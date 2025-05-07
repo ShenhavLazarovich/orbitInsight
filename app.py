@@ -472,7 +472,7 @@ def satellite_spinner(text="Loading satellite data..."):
 st.markdown("""
 <div class="main-header">
     <div class="main-header-logo">
-        <img src="satellite.svg" width="68" height="68" alt="OrbitInsight Logo">
+        <span style="font-size: 48px; margin-right: 10px;">🛰️</span>
     </div>
     <div class="main-header-content">
         <h1>OrbitInsight</h1>
@@ -1033,7 +1033,7 @@ else:
         st.markdown("""
         <div class="welcome-header">
             <h1>Welcome to OrbitInsight</h1>
-            <p>Advanced Satellite Trajectory Analysis Platform</p>
+            <p>Advanced SpaceTrack.com Analysis Platform</p>
         </div>
         """, unsafe_allow_html=True)
         
