@@ -14,7 +14,7 @@ import utils
 # Set page configuration
 st.set_page_config(
     page_title="OrbitInsight",
-    page_icon="./static/orbitinsight_logo.svg",
+    page_icon="🛰️",
     layout="wide",
 )
 
@@ -31,12 +31,8 @@ def replace_replit_running_icon():
     /* Add our own OrbitInsight logo icon */
     .runner-header-icon::before,
     .run-status-indicator::before {
-        content: "";
-        background-image: url('./static/orbitinsight_logo.svg');
-        background-size: contain;
-        background-repeat: no-repeat;
-        width: 24px;
-        height: 24px;
+        content: "🛰️";
+        font-size: 1.2rem;
         margin-right: 0.5rem;
         animation: satellite-pulse 4s ease-in-out infinite;
         display: inline-block;
@@ -75,12 +71,8 @@ def replace_replit_running_icon():
     }
     
     .loading-icon::before {
-        content: "";
-        background-image: url('./static/orbitinsight_logo.svg');
-        background-size: contain;
-        background-repeat: no-repeat;
-        width: 30px;
-        height: 30px;
+        content: "🛰️";
+        font-size: 24px;
         animation: orbit 2s linear infinite;
         position: absolute;
         display: block;
@@ -405,7 +397,7 @@ def satellite_loading(message="Loading satellite data..."):
             {stars_html}
             <div class="planet"></div>
             <div class="planet-rings"></div>
-            <img src="./static/orbitinsight_logo.svg" class="orbitinsight-satellite" style="
+            <img src="satellite.svg" class="orbitinsight-satellite" style="
                 position: absolute;
                 width: 40px;
                 height: 40px;
@@ -454,7 +446,7 @@ def satellite_spinner(text="Loading satellite data..."):
                     {stars_html}
                     <div class="planet"></div>
                     <div class="planet-rings"></div>
-                    <img src="./static/orbitinsight_logo.svg" class="orbitinsight-satellite" style="
+                    <img src="satellite.svg" class="orbitinsight-satellite" style="
                         position: absolute;
                         width: 40px;
                         height: 40px;
@@ -480,11 +472,11 @@ def satellite_spinner(text="Loading satellite data..."):
 st.markdown("""
 <div class="main-header">
     <div class="main-header-logo">
-        <img src="./static/orbitinsight_logo.svg" width="68" height="68" alt="OrbitInsight Logo">
+        <img src="satellite.svg" width="68" height="68" alt="OrbitInsight Logo">
     </div>
     <div class="main-header-content">
         <h1>OrbitInsight</h1>
-        <p>Advanced Satellite Trajectory Analysis Platform</p>
+        <p>Advanced SpaceTrack.com Analysis Platform</p>
     </div>
 </div>
 """, unsafe_allow_html=True)
