@@ -1137,40 +1137,56 @@ else:
         </div>
         """, unsafe_allow_html=True)
         
-        # About Me section at the bottom of main page with enhanced styling
-        about_content = """
-        <div class="welcome-tutorial-box">
-            <div class="about-developer">
-                <h2>About the Developer</h2>
-                <div class="developer-content">
-                    <p>Hello! I'm <strong>Shenhav Lazarovich</strong>, the developer behind OrbitInsight.</p>
-                    
-                    <p>As a space technology enthusiast with a background in aerospace data analysis, 
-                    I built this application to make satellite tracking and space object data more 
-                    accessible and insightful for researchers, educators, and space enthusiasts.</p>
-                    
-                    <p>OrbitInsight connects directly with official SpaceTrack.org databases to provide 
-                    real-time access to satellite trajectory data, conjunction alerts, launch information, 
-                    and other critical space situational awareness metrics.</p>
-                    
-                    <h3>Support My Work</h3>
-                    <p>If you find OrbitInsight useful for your research or educational purposes, 
-                    please consider supporting my work to help maintain and enhance this platform:</p>
-                    
-                    <div style="text-align: center; margin: 20px 0;">
-                        <a href="https://buymeacoffee.com/shenhavlazarovich" target="_blank">
-                            <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" 
-                                alt="Buy Me A Coffee" 
-                                style="height: 42px; width: auto; border-radius: 5px; box-shadow: 0 4px 8px rgba(0,0,0,0.3);">
-                        </a>
-                    </div>
-                    
-                    <p class="thank-you">Thank you for using OrbitInsight!</p>
+        # About Me section using Streamlit native components
+        with st.container():
+            # Create a styled container with CSS
+            st.markdown('<div class="welcome-tutorial-box">', unsafe_allow_html=True)
+            
+            # About Developer section
+            st.subheader("About the Developer")
+            st.write("Hello! I'm **Shenhav Lazarovich**, the developer behind OrbitInsight.")
+            
+            st.write("""
+            As a space technology enthusiast with a background in aerospace data analysis, 
+            I built this application to make satellite tracking and space object data more 
+            accessible and insightful for researchers, educators, and space enthusiasts.
+            
+            OrbitInsight connects directly with official SpaceTrack.org databases to provide 
+            real-time access to satellite trajectory data, conjunction alerts, launch information, 
+            and other critical space situational awareness metrics.
+            """)
+            
+            # Support section
+            st.markdown("### Support My Work")
+            st.write("""
+            If you find OrbitInsight useful for your research or educational purposes, 
+            please consider supporting my work to help maintain and enhance this platform:
+            """)
+            
+            # Center the Buy Me a Coffee button
+            col1, col2, col3 = st.columns([1, 2, 1])
+            with col2:
+                st.markdown("""
+                <div style="text-align: center;">
+                    <a href="https://buymeacoffee.com/shenhavlazarovich" target="_blank">
+                        <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" 
+                            alt="Buy Me A Coffee" 
+                            style="height: 42px; width: auto; border-radius: 5px; box-shadow: 0 4px 8px rgba(0,0,0,0.3);">
+                    </a>
                 </div>
-            </div>
-        </div>
-        """
-        st.markdown(about_content, unsafe_allow_html=True)
+                """, unsafe_allow_html=True)
+            
+            # Thank you message with styling
+            st.markdown("""
+            <p style="margin-top: 20px; font-style: italic; text-align: center; 
+                    color: #a7c5ff; letter-spacing: 0.5px; font-weight: 500; 
+                    text-shadow: 0 2px 10px rgba(79, 139, 249, 0.4);">
+                Thank you for using OrbitInsight!
+            </p>
+            """, unsafe_allow_html=True)
+            
+            # Close the container div
+            st.markdown('</div>', unsafe_allow_html=True)
             
         st.markdown('</div>', unsafe_allow_html=True)  # Close welcome-container
     else:
