@@ -398,7 +398,7 @@ if st.session_state.show_credentials_form:
                 # Test the credentials
                 try:
                     import space_track
-                    client = space_track.SpaceTrackClient()
+                    client = space_track.SpaceTrackClient(username=username, password=password)
                     auth_success = client.authenticate()
                     
                     if auth_success:

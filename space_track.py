@@ -18,9 +18,10 @@ class SpaceTrackClient:
     BASE_URL = "https://www.space-track.org"
     AUTH_URL = f"{BASE_URL}/ajaxauth/login"
     
-    def __init__(self):
-        self.username = os.getenv("SPACETRACK_USERNAME")
-        self.password = os.getenv("SPACETRACK_PASSWORD")
+    def __init__(self, username=None, password=None):
+        # Allow direct credential passing or fall back to environment variables
+        self.username = username or os.getenv("SPACETRACK_USERNAME")
+        self.password = password or os.getenv("SPACETRACK_PASSWORD")
         self.session = requests.Session()
         self.authenticated = False
     
