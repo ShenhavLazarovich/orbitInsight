@@ -13,7 +13,7 @@ import utils
 
 # Set page configuration
 st.set_page_config(
-    page_title="Satellite Trajectory Analysis",
+    page_title="OrbitInsight",
     page_icon="🛰️",
     layout="wide",
 )
@@ -86,37 +86,45 @@ def replace_replit_running_icon():
 # Apply the custom styling
 replace_replit_running_icon()
 
-# Add a custom satellite-themed loading animation using pure CSS
-def add_satellite_css():
+# Add our custom CSS files
+def add_custom_css():
+    # Include our external CSS file
+    with open('static/custom.css', 'r') as css_file:
+        css_content = css_file.read()
+        st.markdown(f'<style>{css_content}</style>', unsafe_allow_html=True)
+    
+    # Add the original satellite loading animation CSS
     st.markdown("""
     <style>
     .satellite-container {
         text-align: center;
         padding: 20px;
-        border-radius: 5px;
+        border-radius: 10px;
         margin: 10px 0;
-        background-color: rgba(0, 0, 0, 0.1);
+        background-color: rgba(26, 35, 50, 0.7);
         position: relative;
         height: 150px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
     }
     
     /* Table filter styles */
     .filter-container {
-        background-color: #f0f2f6;
-        border-radius: 5px;
-        padding: 10px;
+        background-color: rgba(26, 35, 50, 0.5);
+        border-radius: 8px;
+        padding: 15px;
         margin-bottom: 15px;
+        border: 1px solid rgba(255, 255, 255, 0.05);
     }
     
     .filter-title {
         font-weight: bold;
-        color: #3e64ff;
-        margin-bottom: 5px;
+        color: #4F8BF9;
+        margin-bottom: 8px;
     }
     
     .filter-active {
-        border-left: 3px solid #3e64ff;
-        padding-left: 8px;
+        border-left: 3px solid #4F8BF9;
+        padding-left: 10px;
     }
     
     /* Space background styles */
@@ -126,9 +134,9 @@ def add_satellite_css():
         left: 0;
         right: 0;
         bottom: 0;
-        background-color: #0c1445;
+        background-color: #0E1117;
         overflow: hidden;
-        border-radius: 5px;
+        border-radius: 10px;
         z-index: 0;
     }
     
@@ -192,7 +200,7 @@ def add_satellite_css():
         position: absolute;
         width: 18px;
         height: 4px;
-        background-color: #ff9800;
+        background-color: #4F8BF9;
         top: 4px;
     }
     
@@ -259,11 +267,112 @@ def add_satellite_css():
         0%, 100% { opacity: 1; }
         50% { opacity: 0.5; }
     }
+
+    /* Selected tab styling */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 4px;
+    }
+
+    .stTabs [data-baseweb="tab"] {
+        padding: 10px 16px;
+        border-radius: 4px 4px 0 0;
+    }
+
+    .stTabs [aria-selected="true"] {
+        background-color: rgba(79, 139, 249, 0.1) !important;
+        border-bottom: 2px solid #4F8BF9 !important;
+    }
+
+    /* Button styling */
+    .stButton > button {
+        background: linear-gradient(90deg, #4F8BF9, #15BFFF);
+        color: white;
+        border: none;
+        padding: 0.5rem 1rem;
+        font-weight: 500;
+        transition: all 0.2s;
+    }
+
+    .stButton > button:hover {
+        background: linear-gradient(90deg, #15BFFF, #4F8BF9);
+        box-shadow: 0 4px 8px rgba(79, 139, 249, 0.3);
+    }
+
+    /* Sidebar styling */
+    [data-testid="stSidebar"] {
+        background-color: #1A2332;
+        border-right: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] h1,
+    [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] h2,
+    [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] h3 {
+        color: #4F8BF9;
+    }
+
+    /* Radio button enhancements */
+    div[role="radiogroup"] label {
+        background-color: rgba(26, 35, 50, 0.5);
+        border-radius: 4px;
+        padding: 0.25rem 0.75rem;
+        margin-right: 0.5rem;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        transition: all 0.2s;
+    }
+
+    div[role="radiogroup"] label:hover {
+        background-color: rgba(79, 139, 249, 0.1);
+        border-color: rgba(79, 139, 249, 0.5);
+    }
+
+    /* Multiselect styling */
+    .stMultiSelect div[data-baseweb="select"] {
+        background-color: rgba(26, 35, 50, 0.5);
+        border-radius: 4px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .stMultiSelect div[data-baseweb="select"] span {
+        color: #FAFAFA;
+    }
+
+    .stMultiSelect div[data-baseweb="tag"] {
+        background-color: rgba(79, 139, 249, 0.2);
+        border: 1px solid rgba(79, 139, 249, 0.5);
+    }
+
+    /* Chart improvements */
+    .js-plotly-plot {
+        border-radius: 8px;
+        padding: 0.5rem;
+        background: rgba(26, 35, 50, 0.3);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    /* Data table styling */
+    .stDataFrame {
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    .stDataFrame thead th {
+        background-color: rgba(79, 139, 249, 0.1);
+        color: #4F8BF9;
+        font-weight: 600;
+    }
+
+    .stDataFrame tbody tr:nth-child(even) {
+        background-color: rgba(26, 35, 50, 0.3);
+    }
+
+    .stDataFrame tbody tr:hover {
+        background-color: rgba(79, 139, 249, 0.1);
+    }
     </style>
     """, unsafe_allow_html=True)
 
 # Add the CSS
-add_satellite_css()
+add_custom_css()
 
 # Function to display satellite loading animation
 def satellite_loading(message="Loading satellite data..."):
@@ -340,8 +449,18 @@ def satellite_spinner(text="Loading satellite data..."):
             
     return SatelliteSpinnerContextManager(text, placeholder)
 
-# Main title
-st.title("Satellite Trajectory Analysis Dashboard")
+# Create professional header with logo and app name
+st.markdown("""
+<div class="main-header">
+    <div class="main-header-logo">
+        <img src="./satellite.svg" width="56" height="56" alt="OrbitInsight Logo">
+    </div>
+    <div class="main-header-content">
+        <h1>OrbitInsight</h1>
+        <p>Advanced Satellite Trajectory Analysis Platform</p>
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
 # Add tabs for different data categories at the top of the app
 data_category = st.radio(
@@ -583,9 +702,51 @@ if 'trajectory_data' in st.session_state:
     tab1, tab2, tab3 = st.tabs(["Data Table", "Visualizations", "Analysis"])
     
     with tab1:
+        st.markdown('<div class="streamlit-card">', unsafe_allow_html=True)
         st.subheader("Trajectory Data")
         
-        # Add simple data filtering options
+        # Data points summary
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.markdown(f"""
+            <div class="data-stats">
+                <div class="stat-value">{len(df):,}</div>
+                <div class="stat-label">Data Points</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col2:
+            # Format date range
+            if 'timestamp' in df.columns:
+                start_date_str = pd.to_datetime(df['timestamp'].min()).strftime("%Y-%m-%d")
+                end_date_str = pd.to_datetime(df['timestamp'].max()).strftime("%Y-%m-%d")
+                st.markdown(f"""
+                <div class="data-stats">
+                    <div class="stat-value">{(pd.to_datetime(end_date_str) - pd.to_datetime(start_date_str)).days} days</div>
+                    <div class="stat-label">Data Timespan</div>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown(f"""
+                <div class="data-stats">
+                    <div class="stat-value">Unknown</div>
+                    <div class="stat-label">Data Timespan</div>
+                </div>
+                """, unsafe_allow_html=True)
+        
+        with col3:
+            # Get coordinate system
+            coord_system = utils.detect_coordinate_system(df)
+            st.markdown(f"""
+            <div class="data-stats">
+                <div class="stat-value">{coord_system}</div>
+                <div class="stat-label">Coordinate System</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        # Add simple data filtering options in a styled card
+        st.markdown('<div class="filter-panel">', unsafe_allow_html=True)
+        st.markdown('<div class="filter-title">Data Filtering Options</div>', unsafe_allow_html=True)
         col1, col2 = st.columns(2)
         with col1:
             rows_to_display = st.number_input("Rows to display", min_value=10, max_value=1000, value=100, step=10)
@@ -593,6 +754,7 @@ if 'trajectory_data' in st.session_state:
         with col2:
             sort_by = st.selectbox("Sort by", options=df.columns)
             sort_order = st.radio("Sort order", options=["Ascending", "Descending"], horizontal=True)
+        st.markdown('</div>', unsafe_allow_html=True)
         
         # Apply sorting
         if sort_order == "Ascending":
@@ -600,44 +762,55 @@ if 'trajectory_data' in st.session_state:
         else:
             df_display = df.sort_values(by=sort_by, ascending=False).head(rows_to_display)
         
-        # Display the data table
+        # Display the data table with better styling
+        st.markdown('<div class="chart-container">', unsafe_allow_html=True)
         st.dataframe(df_display, use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
         
-        # Add download button
+        # Add download button with better styling
         csv = utils.convert_df_to_csv(df)
-        # Get start and end dates from the data itself if not defined in current scope
-        try:
-            if 'timestamp' in df.columns:
-                data_start_date = pd.to_datetime(df['timestamp'].min()).strftime("%Y-%m-%d")
-                data_end_date = pd.to_datetime(df['timestamp'].max()).strftime("%Y-%m-%d")
-            else:
-                data_start_date = "unknown_start"
-                data_end_date = "unknown_end"
-            
-            st.download_button(
-                label="Download data as CSV",
-                data=csv,
-                file_name=f"satellite_{satellite_id}_trajectory_{data_start_date}_{data_end_date}.csv",
-                mime="text/csv",
-            )
-        except:
-            # Fallback without dates if there's an error
-            st.download_button(
-                label="Download data as CSV",
-                data=csv,
-                file_name=f"satellite_{satellite_id}_trajectory.csv",
-                mime="text/csv",
-            )
+        
+        col1, col2 = st.columns([1, 4])
+        with col1:
+            # Get start and end dates from the data itself if not defined in current scope
+            try:
+                if 'timestamp' in df.columns:
+                    data_start_date = pd.to_datetime(df['timestamp'].min()).strftime("%Y-%m-%d")
+                    data_end_date = pd.to_datetime(df['timestamp'].max()).strftime("%Y-%m-%d")
+                else:
+                    data_start_date = "unknown_start"
+                    data_end_date = "unknown_end"
+                
+                st.download_button(
+                    label="📥 Download CSV",
+                    data=csv,
+                    file_name=f"orbitinsight_satellite_{satellite_id}_{data_start_date}_{data_end_date}.csv",
+                    mime="text/csv",
+                    use_container_width=True
+                )
+            except:
+                # Fallback without dates if there's an error
+                st.download_button(
+                    label="📥 Download CSV",
+                    data=csv,
+                    file_name=f"orbitinsight_satellite_{satellite_id}.csv",
+                    mime="text/csv",
+                    use_container_width=True
+                )
+        st.markdown('</div>', unsafe_allow_html=True)
     
     with tab2:
+        st.markdown('<div class="streamlit-card">', unsafe_allow_html=True)
         st.subheader("Trajectory Visualizations")
         
         # Select visualization type
+        st.markdown('<div class="filter-panel">', unsafe_allow_html=True)
         viz_type = st.radio(
             "Visualization Type",
             options=["2D Path", "3D Path", "Time Series", "Altitude Profile"],
             horizontal=True
         )
+        st.markdown('</div>', unsafe_allow_html=True)
         
         # Display the selected visualization
         if viz_type == "2D Path":
