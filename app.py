@@ -1084,12 +1084,6 @@ else:
         </div>
         """, unsafe_allow_html=True)
         
-        # Empty box at the top (keep this empty)
-        st.markdown("""
-        <div class="welcome-empty-box">
-        </div>
-        """, unsafe_allow_html=True)
-        
         # Features section with cards
         st.markdown('<h2>Platform Capabilities</h2>', unsafe_allow_html=True)
         
