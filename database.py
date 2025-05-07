@@ -46,12 +46,13 @@ def get_database_connection():
     connection_string = f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
     return create_engine(connection_string)
 
-def get_satellites(engine):
+def get_satellites(engine, search_query=None):
     """
     Get list of available satellites from the database or Space-Track API.
     
     Args:
         engine: SQLAlchemy database engine
+        search_query: Optional search term to find satellites by name (searches Space-Track if credentials are available)
         
     Returns:
         Dictionary of satellite information with {id: name} pairs, sorted by launch date
