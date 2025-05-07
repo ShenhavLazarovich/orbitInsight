@@ -2,10 +2,6 @@
 
 A dynamic Streamlit-based platform for analyzing satellite movement and space object data from the Combined Space Operations Center (CSpOC) database with interactive visualization capabilities.
 
-![Satellite Dashboard](generated-icon.png)
-
-[![Buy Me A Coffee](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/opsat3000)
-
 ## Features
 
 - **Real-time satellite data**: Access actual satellite trajectory information from Space-Track.org
