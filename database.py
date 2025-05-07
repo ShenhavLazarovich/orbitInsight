@@ -92,22 +92,32 @@ def get_satellites(engine, search_query=None):
         "99001": "OpSat3000 (Earth Observation Satellite) (Launched: 2023-06-15)" # Added OpSat3000 with a unique ID
     }
     
-    # Check if we need to populate database with sample data for Hubble
+    # Check if we need to populate database with sample data for known satellites
     try:
-        hubble_id = "20580"
-        query = text("""
-            SELECT COUNT(*) FROM satellite_trajectories 
-            WHERE satellite_id = :satellite_id
-        """)
+        # Define satellites to check for
+        satellites_to_check = [
+            {"id": "20580", "name": "Hubble Space Telescope", "orbit_radius": 6911000, "orbit_period": 95},
+            {"id": "99001", "name": "OpSat3000 (Earth Observation Satellite)", "orbit_radius": 7071000, "orbit_period": 100, "alt_variation": 0.1}
+        ]
         
-        with engine.connect() as conn:
-            result = conn.execute(query, {"satellite_id": hubble_id})
-            count = result.scalar()
+        for sat in satellites_to_check:
+            sat_id = sat["id"]
+            query = text("""
+                SELECT COUNT(*) FROM satellite_trajectories 
+                WHERE satellite_id = :satellite_id
+            """)
             
-            # If no data exists for Hubble, add some sample points for demonstration
-            if count == 0:
-                print(f"No data found for Hubble Space Telescope. Adding sample trajectory points.")
-                create_hubble_sample_data(engine)
+            with engine.connect() as conn:
+                result = conn.execute(query, {"satellite_id": sat_id})
+                count = result.scalar()
+                
+                # If no data exists for this satellite, add some sample points
+                if count == 0:
+                    print(f"No data found for {sat['name']}. Adding sample trajectory points.")
+                    orbit_radius = sat.get("orbit_radius", 6911000)  # default to Hubble's
+                    orbit_period = sat.get("orbit_period", 95)
+                    alt_variation = sat.get("alt_variation", 0.05)
+                    create_sample_satellite_data(engine, sat_id, sat["name"], orbit_radius, orbit_period, alt_variation)
     except Exception as e:
         print(f"Error checking for Hubble data: {e}")
         # It's okay to continue if this fails
@@ -157,8 +167,15 @@ def get_satellites(engine, search_query=None):
                                     
                             # Add specific handling for OpSat3000
                             if 'opsat' in search_lower:
-                                special_case = {'name': 'OPSAT', 'alternative_names': ['OPSAT3000', 'OPSAT 3000']}
+                                special_case = {'name': 'OPSAT', 'id': '99001', 'alternative_names': ['OPSAT3000', 'OPSAT 3000']}
                                 print(f"Special handling for OpSat: {special_case}")
+                                
+                                # Directly add OpSat3000 to the satellite list as it's our custom satellite
+                                satellite_list.append({
+                                    'id': '99001',
+                                    'name': 'OpSat3000 (Earth Observation Satellite) (Launched: 2023-06-15)',
+                                    'launch_date': '2023-06-15'
+                                })
                                     
                             if special_case:
                                 # For satellites with known IDs, try direct lookup
@@ -803,18 +820,25 @@ def create_sample_satellite_data(engine, satellite_id, satellite_name, orbit_rad
                 conn.execute(create_table_query)
                 conn.commit()
                 print("Created satellite_trajectories table")
+                
+        # Check if we already have data for this satellite
+        check_data_query = text("""
+            SELECT COUNT(*) FROM satellite_trajectories 
+            WHERE satellite_id = :satellite_id
+        """)
         
-        # Generate sample trajectory data for Hubble
-        # Hubble orbits at around 540 km altitude in a roughly circular orbit
+        with engine.connect() as conn:
+            result = conn.execute(check_data_query, {"satellite_id": satellite_id})
+            data_count = result.scalar()
+            
+        if data_count > 0:
+            print(f"Data for satellite {satellite_id} already exists in database. Skipping sample data creation.")
+            return
+            
+        # Generate sample trajectory data
         import math
         import numpy as np
         from datetime import datetime, timedelta
-        
-        # Parameters for Hubble's orbit (approximate)
-        satellite_id = "20580"
-        satellite_name = "Hubble Space Telescope"
-        orbit_radius = 6911000  # meters (Earth radius + 540 km altitude)
-        orbit_period = 95  # minutes
         
         # Generate data points for the last 30 days
         end_date = datetime.now()
@@ -831,7 +855,6 @@ def create_sample_satellite_data(engine, satellite_id, satellite_name, orbit_rad
         trajectory_data = []
         for i, timestamp in enumerate(time_points):
             # Calculate position using simple circular orbit model
-            # In reality, Hubble's orbit is more complex but this gives us realistic-looking data
             elapsed_minutes = (timestamp - start_date).total_seconds() / 60
             orbit_angle = (elapsed_minutes % orbit_period) * (2 * math.pi / orbit_period)
             
@@ -839,6 +862,11 @@ def create_sample_satellite_data(engine, satellite_id, satellite_name, orbit_rad
             x = orbit_radius * math.cos(orbit_angle)
             y = orbit_radius * math.sin(orbit_angle)
             z = orbit_radius * 0.1 * math.sin(orbit_angle * 2)  # Slight inclination
+            
+            # Add some random variation in the orbit radius to simulate altitude changes
+            variation = orbit_radius * alt_variation * math.sin(orbit_angle * 8)
+            x += variation * math.cos(orbit_angle)
+            y += variation * math.sin(orbit_angle)
             
             # Calculate velocity (approximately 7.5 km/s for this orbit)
             velocity_magnitude = 7500  # m/s
@@ -887,10 +915,10 @@ def create_sample_satellite_data(engine, satellite_id, satellite_name, orbit_rad
                 })
             conn.commit()
         
-        print(f"Added {len(trajectory_data)} sample trajectory points for Hubble Space Telescope")
+        print(f"Added {len(trajectory_data)} sample trajectory points for {satellite_name}")
         
     except Exception as e:
-        print(f"Error creating sample data for Hubble: {e}")
+        print(f"Error creating sample data for {satellite_name}: {e}")
         traceback.print_exc()
 
 def store_trajectory_data(engine, trajectory_df):
