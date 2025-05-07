@@ -31,8 +31,12 @@ def replace_replit_running_icon():
     /* Add our own OrbitInsight logo icon */
     .runner-header-icon::before,
     .run-status-indicator::before {
-        content: "🛰️";
-        font-size: 1.2rem;
+        content: "";
+        background-image: url('./static/orbitinsight_logo.svg');
+        background-size: contain;
+        background-repeat: no-repeat;
+        width: 24px;
+        height: 24px;
         margin-right: 0.5rem;
         animation: satellite-pulse 4s ease-in-out infinite;
         display: inline-block;
@@ -71,8 +75,12 @@ def replace_replit_running_icon():
     }
     
     .loading-icon::before {
-        content: "🛰️";
-        font-size: 24px;
+        content: "";
+        background-image: url('./static/orbitinsight_logo.svg');
+        background-size: contain;
+        background-repeat: no-repeat;
+        width: 30px;
+        height: 30px;
         animation: orbit 2s linear infinite;
         position: absolute;
         display: block;
@@ -472,7 +480,7 @@ def satellite_spinner(text="Loading satellite data..."):
 st.markdown("""
 <div class="main-header">
     <div class="main-header-logo">
-        <span style="font-size: 48px; margin-right: 10px;">🛰️</span>
+        <img src="satellite.svg" width="68" height="68" alt="OrbitInsight Logo">
     </div>
     <div class="main-header-content">
         <h1>OrbitInsight</h1>
