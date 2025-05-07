@@ -869,14 +869,9 @@ if 'trajectory_data' in st.session_state:
                     df['altitude'] = np.sqrt(df['x']**2 + df['y']**2 + df['z']**2) - 6371000  # Earth radius in meters
                     st.info("Altitude was calculated from positional coordinates")
             
-            # Print debugging info
-            st.write(f"Data points: {len(df)}")
-            st.write(f"Columns available: {', '.join(df.columns)}")
-            
-            # Show min and max altitude values to help diagnose scaling issues
-            min_alt = df['altitude'].min()
-            max_alt = df['altitude'].max()
-            st.write(f"Altitude range: {min_alt:.2f} to {max_alt:.2f} meters")
+            # Get min and max altitude values for plotting
+            min_alt = df['altitude'].min() if 'altitude' in df.columns else 0
+            max_alt = df['altitude'].max() if 'altitude' in df.columns else 0
             
             # Create a direct plot instead of using the visualization module
             # This will help bypass potential issues in the visualization function
