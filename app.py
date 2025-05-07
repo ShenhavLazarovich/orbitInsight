@@ -495,7 +495,7 @@ st.markdown("""
 # Add tabs for different data categories at the top of the app
 data_category = st.radio(
     "Select Data Category",
-    ["Trajectories", "Satellite Catalog", "Launch Sites", "Decay Data", "Conjunction Data", "Boxscore Data"],
+    ["Trajectories", "Satellite Catalog", "Launch Sites", "Decay Data", "Conjunction Data", "Boxscore Data", "About Me"],
     horizontal=True,
     help="Choose which type of space data to explore"
 )
@@ -2663,3 +2663,33 @@ else:
             
             else:
                 st.info("Click 'Load Boxscore Data' to view statistics by country")
+                
+        elif data_category == "About Me":
+            st.markdown("""
+            <div class="streamlit-card">
+                <h2>About the Developer</h2>
+                <p>Hello! I'm Shenhav Lazarovich, the developer behind OrbitInsight - an advanced SpaceTrack.com analysis platform.</p>
+                
+                <p>As a space technology enthusiast, I built this application to make satellite tracking and space object data more accessible and insightful. OrbitInsight allows users to explore real satellite data from SpaceTrack.org in an interactive and visual way.</p>
+                
+                <h3>Support My Work</h3>
+                <p>If you find this application useful, please consider supporting my work by buying me a coffee!</p>
+                
+                <a href="https://buymeacoffee.com/shenhavlazarovich" target="_blank">
+                    <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 60px;width: auto;" >
+                </a>
+                
+                <h3>Features</h3>
+                <ul>
+                    <li>Real-time satellite trajectory visualization</li>
+                    <li>Space object catalog exploration</li>
+                    <li>Launch site analysis</li>
+                    <li>Re-entry/decay data analysis</li>
+                    <li>Conjunction (close approach) data analysis</li>
+                    <li>Space object statistics by country</li>
+                </ul>
+                
+                <p>Thank you for using OrbitInsight!</p>
+            </div>
+            """
+            , unsafe_allow_html=True)
