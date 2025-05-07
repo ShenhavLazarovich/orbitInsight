@@ -688,11 +688,6 @@ if 'trajectory_data' in st.session_state:
                 # Display the plot
                 st.plotly_chart(fig, use_container_width=True)
                 
-                # Also try the visualization module as a fallback
-                st.write("#### Alternative Visualization:")
-                fig2 = vis.plot_altitude_profile(df)
-                st.plotly_chart(fig2, use_container_width=True)
-                
             except Exception as e:
                 st.error(f"Error creating direct plot: {e}")
                 # Fall back to the visualization module
