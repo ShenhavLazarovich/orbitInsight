@@ -1,8 +1,10 @@
-# Satellite Trajectory Analysis Dashboard
+# OrbitInsight: Advanced SpaceTrack.com Analysis Platform
 
 A dynamic Streamlit-based platform for analyzing satellite movement and space object data from the Combined Space Operations Center (CSpOC) database with interactive visualization capabilities.
 
 ![Satellite Dashboard](generated-icon.png)
+
+[![Buy Me A Coffee](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/opsat3000)
 
 ## Features
 
@@ -11,6 +13,7 @@ A dynamic Streamlit-based platform for analyzing satellite movement and space ob
 - **Multiple data categories**: Explore satellite catalog, launch sites, decay events, conjunction warnings, and boxscore statistics
 - **Anomaly detection**: Identify unusual satellite behavior with built-in analysis tools
 - **Flexible filtering**: Search by satellite name, date range, and data types
+- **Enhanced Earth reference visualization**: View satellites in relation to Earth with proper altitude scaling
 - **PostgreSQL database**: Cache retrieved data for faster access and offline analysis
 
 ## Requirements
@@ -69,14 +72,21 @@ A dynamic Streamlit-based platform for analyzing satellite movement and space ob
 3. How to use the dashboard:
    - Select a data category from the sidebar (Satellite Trajectory, Catalog Data, etc.)
    - For Satellite Trajectory analysis:
-     - Choose a satellite from the dropdown list
-     - Set date range for analysis
-     - Select alert types to include
-     - Click "Load Data" to retrieve and visualize the information
+     - **Type to search for satellites** - Start typing a satellite name in the search box
+     - **Select with auto-complete** - As you type, matching satellite names will appear
+     - **Auto-load data** - Press Enter after selecting a satellite to automatically load its data
+     - Alternatively, set date range and alert types, then click "Load Data" button
+     - Explore the visualizations across the different tabs
    - For other data categories:
      - Adjust filters as needed (days to look back, record limits, etc.)
      - Click the "Load Data" button for the selected category
      - Explore visualizations and download data as needed
+   
+4. Advanced features:
+   - **3D Trajectory View**: View satellite orbits with Earth reference sphere and proper altitude scaling
+   - **Altitude Profile**: Analyze orbital height variations over time
+   - **Data Analysis**: Get orbit statistics and anomaly detection
+   - **Data Export**: Download the trajectory data as CSV for further analysis
 
 ## Data Sources
 
@@ -110,3 +120,11 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - Space-Track.org for providing access to CSpOC satellite data
 - The SGP4 propagator for trajectory calculations
 - Streamlit, Pandas, and Plotly for the interactive dashboard framework
+
+## Support the Project
+
+If you find this tool useful for your satellite analysis needs, please consider supporting the project:
+
+[![Buy Me A Coffee](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/opsat3000)
+
+Your support helps maintain and improve OrbitInsight!
