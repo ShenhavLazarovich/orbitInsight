@@ -57,15 +57,26 @@ class SpaceTrackClient:
             Pandas DataFrame with TLE data
         """
         if not self.authenticated and not self.authenticate():
-            raise ConnectionError("Failed to authenticate with Space-Track.org")
+            print("Authentication failed, retrying...")
+            if not self.authenticate():
+                print("Authentication with Space-Track.org failed")
+                raise ConnectionError("Failed to authenticate with Space-Track.org")
             
         # Build query
         query_params = []
         if norad_cat_id:
             query_params.append(f"NORAD_CAT_ID/{norad_cat_id}")
         elif satellite_name:
-            query_params.append(f"OBJECT_NAME/{satellite_name}")
-            
+            # Try to match more satellites with wildcards
+            # The ~~ operator is equivalent to SQL's LIKE
+            if "%" in satellite_name:
+                # Convert from SQL-style % wildcard to Space-Track's * wildcard
+                search_term = satellite_name.replace("%", "*")
+                query_params.append(f"OBJECT_NAME/~~{search_term}")
+            else:
+                # For direct search terms, use contains to find partial matches
+                query_params.append(f"OBJECT_NAME/~~*{satellite_name}*")
+                
         # Default to most recent data if no parameters provided
         if not query_params:
             query_params.append("ORDINAL/1")

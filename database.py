@@ -132,16 +132,82 @@ def get_satellites(engine, search_query=None):
                         # Create SpaceTrack client instance
                         client = st.SpaceTrackClient()
                         try:
-                            # Use wildcard search for the name (add % before and after for SQL LIKE search)
-                            search_pattern = f"%{search_query}%"
-                            print(f"Using search pattern: {search_pattern}")
-                            tle_data = client.get_latest_tle(satellite_name=search_pattern, limit=500)
+                            # Special handling for common satellites
+                            special_cases = {
+                                'iss': {'name': 'ISS', 'id': '25544', 'alternative_names': ['ZARYA', 'INTERNATIONAL SPACE STATION']},
+                                'hubble': {'name': 'HUBBLE', 'id': '20580', 'alternative_names': ['HST']},
+                                'starlink': {'name': 'STARLINK', 'alternative_names': []},
+                                'goes': {'name': 'GOES', 'alternative_names': []},
+                                'landsat': {'name': 'LANDSAT', 'alternative_names': []},
+                                'noaa': {'name': 'NOAA', 'alternative_names': []}
+                            }
                             
-                            # Create satellite list from TLE results
+                            # First check if this is a well-known satellite with special handling
+                            search_lower = search_query.lower()
                             satellite_list = []
+                            
+                            # If special case matches, directly look up satellites by name or ID
+                            special_case = None
+                            for key, info in special_cases.items():
+                                if key in search_lower or search_lower in key:
+                                    special_case = info
+                                    break
+                                    
+                            if special_case:
+                                # For satellites with known IDs, try direct lookup
+                                if 'id' in special_case:
+                                    try:
+                                        print(f"Looking up special case satellite by ID: {special_case['id']}")
+                                        tle_by_id = client.get_latest_tle(norad_cat_id=special_case['id'], limit=1)
+                                        if not tle_by_id.empty:
+                                            # Add this satellite to our list
+                                            sat = tle_by_id.iloc[0]
+                                            satellite_list.append({
+                                                'id': sat['NORAD_CAT_ID'],
+                                                'name': f"{sat['OBJECT_NAME']} (NORAD ID: {sat['NORAD_CAT_ID']})",
+                                                'launch_date': sat.get('LAUNCH_DATE', 'Unknown')
+                                            })
+                                    except Exception as e:
+                                        print(f"Error looking up special case by ID: {e}")
+                                
+                                # Try direct name lookup
+                                try:
+                                    print(f"Looking up special case satellite by name: {special_case['name']}")
+                                    # Start with exact match
+                                    tle_data = client.get_latest_tle(satellite_name=special_case['name'], limit=100)
+                                    # Then try with wildcard
+                                    if tle_data.empty:
+                                        tle_data = client.get_latest_tle(satellite_name=f"*{special_case['name']}*", limit=100)
+                                        
+                                    # Try alternative names if needed
+                                    for alt_name in special_case['alternative_names']:
+                                        if tle_data.empty:
+                                            print(f"Trying alternative name: {alt_name}")
+                                            tle_alt = client.get_latest_tle(satellite_name=alt_name, limit=100)
+                                            if not tle_alt.empty:
+                                                tle_data = tle_alt
+                                except Exception as e:
+                                    print(f"Error in special case lookup: {e}")
+                            
+                            # Standard search if no special case or special case lookup failed
+                            if not satellite_list:
+                                # Use wildcard search for the name (add * before and after for SpaceTrack wildcard search)
+                                search_pattern = f"*{search_query}*"
+                                print(f"Using search pattern: {search_pattern}")
+                                tle_data = client.get_latest_tle(satellite_name=search_pattern, limit=500)
+                                
+                                # Also try direct search if wildcard fails
+                                if tle_data.empty:
+                                    tle_data = client.get_latest_tle(satellite_name=search_query, limit=500)
+                            
+                            # Process TLE results
                             if not tle_data.empty:
                                 for _, sat in tle_data.iterrows():
                                     if 'NORAD_CAT_ID' in sat and 'OBJECT_NAME' in sat:
+                                        # Skip if we already have this satellite in our list
+                                        if sat['NORAD_CAT_ID'] in [s.get('id') for s in satellite_list]:
+                                            continue
+                                            
                                         # Include launch date if available
                                         launch_date = sat.get('LAUNCH_DATE', 'Unknown')
                                         # Create display name with launch date if available
