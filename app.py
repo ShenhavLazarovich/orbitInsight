@@ -613,18 +613,103 @@ else:
     id_to_display_name = {sat_id: f"{name} (ID: {sat_id})" for sat_id, name in satellites_dict.items()}
     display_name_to_id = {f"{name} (ID: {sat_id})": sat_id for sat_id, name in satellites_dict.items()}
 
-    # Satellite selection
-    selected_satellite_display = st.sidebar.selectbox(
-        "Select Satellite",
-        options=satellite_options,
-        help="Choose a satellite to view its trajectory data"
+    # Create a dictionary to store satellites by name and ID for search
+    search_options = {}
+    for sat_id, name in satellites_dict.items():
+        # Store lowercase for case-insensitive search
+        search_options[name.lower()] = sat_id
+        search_options[sat_id.lower()] = sat_id
+        
+    # Add custom CSS for the search box
+    st.sidebar.markdown("""
+    <style>
+    .satellite-search {
+        margin-bottom: 0.5rem;
+    }
+    .search-results {
+        max-height: 300px;
+        overflow-y: auto;
+        border: 1px solid rgba(79, 139, 249, 0.3);
+        border-radius: 4px;
+        background-color: rgba(16, 24, 39, 0.95);
+        margin-top: 0.5rem;
+    }
+    .search-item {
+        padding: 0.5rem;
+        border-bottom: 1px solid rgba(79, 139, 249, 0.2);
+        transition: background-color 0.2s;
+        cursor: pointer;
+    }
+    .search-item:hover {
+        background-color: rgba(79, 139, 249, 0.2);
+    }
+    .search-item.selected {
+        background-color: rgba(79, 139, 249, 0.3);
+    }
+    .no-results {
+        padding: 0.5rem;
+        color: #a7c5ff;
+        font-style: italic;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    # Satellite search box with auto-suggestions
+    st.sidebar.subheader("Search Satellite")
+    search_query = st.sidebar.text_input(
+        "Type satellite name or ID",
+        help="Search by satellite name or ID number",
+        key="satellite_search",
+        placeholder="e.g. ISS, Hubble, 25544"
     )
-
-    # Extract the actual satellite ID from the selection
-    selected_satellite = display_name_to_id[selected_satellite_display]
-
-    # Store the display name for later use
-    st.session_state['selected_satellite_name'] = selected_satellite_display
+    
+    # Initialize search results
+    if 'selected_satellite' not in st.session_state:
+        # Default to first satellite if nothing selected yet
+        st.session_state['selected_satellite'] = list(satellites_dict.keys())[0]
+        st.session_state['selected_satellite_name'] = id_to_display_name[st.session_state['selected_satellite']]
+    
+    # Filter satellites based on search query
+    matching_satellites = []
+    if search_query:
+        search_query = search_query.lower()
+        for display_name, sat_id in display_name_to_id.items():
+            if (search_query in display_name.lower() or 
+                search_query in sat_id.lower()):
+                matching_satellites.append((display_name, sat_id))
+        
+        # Sort by relevance (exact matches first, then starts with, then contains)
+        matching_satellites.sort(key=lambda x: (
+            0 if x[0].lower() == search_query else
+            (1 if x[0].lower().startswith(search_query) else
+             (2 if x[1].lower() == search_query else
+              (3 if x[1].lower().startswith(search_query) else 4)))
+        ))
+        
+        # Limit to top 10 matches for performance
+        matching_satellites = matching_satellites[:10]
+    
+    # Display search results
+    if search_query:
+        if matching_satellites:
+            st.sidebar.markdown('<div class="search-results">', unsafe_allow_html=True)
+            for display_name, sat_id in matching_satellites:
+                # Create a button for each result that looks like a search result
+                if st.sidebar.button(display_name, key=f"sat_{sat_id}"):
+                    st.session_state['selected_satellite'] = sat_id
+                    st.session_state['selected_satellite_name'] = display_name
+                    # Rerun to update the selection immediately
+                    st.rerun()
+            st.sidebar.markdown('</div>', unsafe_allow_html=True)
+        else:
+            st.sidebar.info("No satellites found. Try a different search term.")
+    
+    # Show current selection
+    st.sidebar.markdown("### Current Selection")
+    st.sidebar.info(f"Selected: {st.session_state['selected_satellite_name']}")
+    
+    # Use the selected satellite ID
+    selected_satellite = st.session_state['selected_satellite']
 
     # Time period selection
     st.sidebar.subheader("Time Period")
