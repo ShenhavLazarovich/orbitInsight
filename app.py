@@ -495,9 +495,10 @@ st.markdown("""
 # Add tabs for different data categories at the top of the app
 data_category = st.radio(
     "Select Data Category",
-    ["Trajectories", "Satellite Catalog", "Launch Sites", "Decay Data", "Conjunction Data", "Boxscore Data"],
+    ["Welcome", "Trajectories", "Satellite Catalog", "Launch Sites", "Decay Data", "Conjunction Data", "Boxscore Data"],
     horizontal=True,
-    help="Choose which type of space data to explore"
+    help="Choose which type of space data to explore",
+    index=0  # Default to Welcome page
 )
 
 # Check for Space-Track credentials
@@ -1215,7 +1216,94 @@ if 'trajectory_data' in st.session_state:
 
 else:
     # Show appropriate content based on selected data category
-    if data_category == "Trajectories":
+    if data_category == "Welcome":
+        # Display the welcome page as the default view
+        st.markdown('<div class="welcome-container">', unsafe_allow_html=True)
+        
+        # Main welcome header
+        st.markdown("""
+        <div class="welcome-header">
+            <h1>Welcome to OrbitInsight</h1>
+            <p>Advanced SpaceTrack.com Analysis Platform</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Features section with cards
+        st.markdown('<h2>Platform Capabilities</h2>', unsafe_allow_html=True)
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("""
+            <div class="feature-card">
+                <div class="feature-icon">📡</div>
+                <h3>Real-time Data Access</h3>
+                <p>Connect to Space-Track.org API to retrieve actual satellite trajectory data from the Combined Space Operations Center (CSpOC).</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            st.markdown("""
+            <div class="feature-card">
+                <div class="feature-icon">🔍</div>
+                <h3>Advanced Analysis</h3>
+                <p>Apply statistical methods to analyze trajectory patterns, detect anomalies, and calculate key orbital metrics.</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col2:
+            st.markdown("""
+            <div class="feature-card">
+                <div class="feature-icon">🌐</div>
+                <h3>Interactive Visualization</h3>
+                <p>Explore satellite trajectories with dynamic 2D and 3D visualizations showing position, altitude, and other parameters.</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            st.markdown("""
+            <div class="feature-card">
+                <div class="feature-icon">🔄</div>
+                <h3>Multiple Data Categories</h3>
+                <p>Access and analyze various types of space data including satellite catalog, launch sites, decay data, and more.</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        # Getting started tutorial
+        st.markdown('<div class="welcome-tutorial-box">', unsafe_allow_html=True)
+        st.markdown('<h2>Getting Started</h2>', unsafe_allow_html=True)
+        st.markdown("""
+        <ol class="tutorial-steps">
+            <li>Select a <strong>Data Category</strong> from the options at the top of the page.</li>
+            <li>For trajectory analysis, use the <strong>Search Satellite</strong> box in the sidebar to find a satellite.</li>
+            <li>Choose a <strong>Time Period</strong> using the date selectors or quick filter buttons.</li>
+            <li>Click <strong>Load Data</strong> to fetch the satellite trajectory information.</li>
+            <li>Explore the data using the <strong>tabs</strong> for basic info, visualizations, and analysis.</li>
+        </ol>
+        """, unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        # About Developer section (at the bottom of the welcome page)
+        st.markdown('<div class="about-developer">', unsafe_allow_html=True)
+        st.markdown("""
+        <div class="developer-content">
+            <h2>About the Developer</h2>
+            
+            <p>Hello! I'm the creator of OrbitInsight, an aerospace engineer passionate about making space data more accessible and understandable.</p>
+            
+            <h3>Project Background</h3>
+            <p>OrbitInsight was created to bridge the gap between complex space operations data and user-friendly analysis. This platform leverages the Space-Track.org API to provide real satellite tracking information with intuitive visualizations.</p>
+            
+            <h3>Technical Details</h3>
+            <p>Built with Streamlit, Python, and SQL, this application implements the SGP4 orbital propagator to calculate precise satellite positions. The interactive visualizations use Plotly for dynamic exploration of trajectory data.</p>
+            
+            <p class="thank-you">Thank you for exploring OrbitInsight!</p>
+        </div>
+        """, unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Close welcome container
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+    elif data_category == "Trajectories":
         # Display instructions if no data is loaded
         st.info("👈 Select a satellite and time period, then click 'Load Data' to begin.")
         
