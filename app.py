@@ -644,26 +644,40 @@ if 'trajectory_data' in st.session_state:
                     plot_df = plot_df.sort_values('timestamp')
                     x_column = 'timestamp'
                     x_label = 'Time'
+                    x_values = plot_df['timestamp']
                 else:
-                    x_column = plot_df.index
+                    x_column = None  # Use index instead
                     x_label = 'Data Point'
+                    x_values = plot_df.index
                 
                 # Create a direct Plotly Express plot
                 import plotly.express as px
-                fig = px.line(
-                    plot_df, 
-                    x=x_column, 
-                    y=y_column,
-                    title="Satellite Altitude Profile",
-                    labels={x_column: x_label, y_column: y_label}
-                )
+                
+                # Create plot differently depending on whether we're using index or column
+                if x_column is None:
+                    # Plot using index
+                    fig = px.line(
+                        plot_df, 
+                        y=y_column,
+                        title="Satellite Altitude Profile",
+                        labels={"index": x_label, y_column: y_label}
+                    )
+                else:
+                    # Plot using column
+                    fig = px.line(
+                        plot_df, 
+                        x=x_column, 
+                        y=y_column,
+                        title="Satellite Altitude Profile",
+                        labels={x_column: x_label, y_column: y_label}
+                    )
                 
                 # Add a smoother trend line (moving average)
                 if len(plot_df) > 5:
                     import plotly.graph_objects as go
                     fig.add_trace(
                         go.Scatter(
-                            x=plot_df[x_column] if x_column != plot_df.index else plot_df.index,
+                            x=x_values,
                             y=plot_df[y_column].rolling(window=5, min_periods=1).mean(),
                             mode='lines',
                             name='Moving Average (5)',
