@@ -1137,22 +1137,29 @@ else:
         </div>
         """, unsafe_allow_html=True)
         
-        # About Me section at the bottom of main page
+        # About Me section at the bottom of main page with enhanced styling
         st.markdown("""
         <div class="welcome-tutorial-box about-developer">
             <h2>About the Developer</h2>
-            <p>Hello! I'm Shenhav Lazarovich, the developer behind OrbitInsight.</p>
-            
-            <p>As a space technology enthusiast, I built this application to make satellite tracking and space object data more accessible and insightful.</p>
-            
-            <h3>Support My Work</h3>
-            <p>If you find this application useful, please consider supporting my work:</p>
-            
-            <a href="https://buymeacoffee.com/shenhavlazarovich" target="_blank">
-                <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 40px;width: auto;" >
-            </a>
-            
-            <p>Thank you for using OrbitInsight!</p>
+            <div class="developer-content">
+                <p>Hello! I'm <strong>Shenhav Lazarovich</strong>, the developer behind OrbitInsight.</p>
+                
+                <p>As a space technology enthusiast with a background in aerospace data analysis, 
+                I built this application to make satellite tracking and space object data more 
+                accessible and insightful for researchers, educators, and space enthusiasts.</p>
+                
+                <h3>Support My Work</h3>
+                <p>If you find OrbitInsight useful for your research or educational purposes, 
+                please consider supporting my work:</p>
+                
+                <a href="https://buymeacoffee.com/shenhavlazarovich" target="_blank">
+                    <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" 
+                         alt="Buy Me A Coffee" 
+                         style="height: 42px; width: auto; border-radius: 5px; box-shadow: 0 4px 8px rgba(0,0,0,0.3);">
+                </a>
+                
+                <p class="thank-you">Thank you for using OrbitInsight!</p>
+            </div>
         </div>
         """, unsafe_allow_html=True)
             
