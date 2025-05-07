@@ -74,7 +74,8 @@ def plot_2d_trajectory(df):
     fig.update_layout(
         xaxis=dict(showgrid=True, zeroline=True),
         yaxis=dict(showgrid=True, zeroline=True),
-        hovermode='closest'
+        hovermode='closest',
+        height=600  # Increase the plot height
     )
     
     return fig
@@ -182,7 +183,8 @@ def plot_3d_trajectory(df):
             zaxis_title='Z Position (m)',
             aspectmode='data'
         ),
-        margin=dict(l=0, r=0, b=0, t=30)
+        margin=dict(l=0, r=0, b=0, t=30),
+        height=600  # Increase the plot height
     )
     
     return fig
@@ -259,7 +261,8 @@ def plot_time_series(df, parameter):
     fig.update_layout(
         xaxis=dict(title='Time'),
         yaxis=dict(title=parameter),
-        hovermode='closest'
+        hovermode='closest',
+        height=600  # Increase the plot height
     )
     
     return fig

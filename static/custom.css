@@ -181,6 +181,16 @@
     opacity: 0.7;
 }
 
+/* Specific styling for trajectory visualizations */
+.stPlotlyChart {
+    min-height: 500px !important;
+}
+
+/* Ensure plotly visualizations have enough height */
+.js-plotly-plot, .plotly, .plot-container {
+    min-height: 500px !important;
+}
+
 /* OrbitInsight Filter and control panels */
 .filter-panel {
     background: rgba(16, 24, 39, 0.6);
