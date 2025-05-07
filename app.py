@@ -607,6 +607,18 @@ if 'trajectory_data' in st.session_state:
             st.plotly_chart(fig, use_container_width=True)
             
         elif viz_type == "Altitude Profile":
+            # Check if we have altitude data
+            if 'altitude' not in df.columns:
+                # Calculate it from x, y, z if needed
+                if all(col in df.columns for col in ['x', 'y', 'z']):
+                    df['altitude'] = np.sqrt(df['x']**2 + df['y']**2 + df['z']**2) - 6371000  # Earth radius in meters
+                    st.info("Altitude was calculated from positional coordinates")
+            
+            # Print debugging info
+            st.write(f"Data points: {len(df)}")
+            st.write(f"Columns available: {', '.join(df.columns)}")
+            
+            # Create the plot
             fig = vis.plot_altitude_profile(df)
             st.plotly_chart(fig, use_container_width=True)
     
