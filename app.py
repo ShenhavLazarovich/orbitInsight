@@ -689,6 +689,44 @@ else:
         # Limit to top 10 matches for performance
         matching_satellites = matching_satellites[:10]
     
+    # Function to load data based on current filters
+    def load_satellite_data():
+        # Don't try to load if we're missing key values
+        if not hasattr(st.session_state, 'selected_satellite'):
+            return
+            
+        # Show our custom satellite loading animation instead of the default spinner
+        with satellite_spinner(f"Loading trajectory data for satellite {st.session_state['selected_satellite']}..."):
+            try:
+                # Get data from database or Space-Track
+                df = db.get_trajectory_data(
+                    engine, 
+                    st.session_state['selected_satellite'],
+                    st.session_state.get('start_date', datetime.now() - timedelta(days=7)),
+                    st.session_state.get('end_date', datetime.now()),
+                    st.session_state.get('selected_alert_types', [])
+                )
+                
+                if df.empty:
+                    if has_space_track_credentials:
+                        st.warning(f"No data found for satellite {st.session_state['selected_satellite']} in the selected date range. Try a different satellite or date range.")
+                    else:
+                        st.warning("No data found. Please enter Space-Track.org credentials to access real satellite data.")
+                    return
+                    
+                # Store the data in session state for reuse
+                st.session_state['trajectory_data'] = df
+                st.session_state['satellite_id'] = st.session_state['selected_satellite']
+                
+                # Add satellite name to session state if available
+                if 'satellite_name' in df.columns:
+                    satellite_name = df['satellite_name'].iloc[0]
+                    st.session_state['satellite_name'] = satellite_name
+                
+            except Exception as e:
+                st.error(f"Error retrieving data: {str(e)}")
+                return
+            
     # Display search results
     if search_query:
         if matching_satellites:
@@ -696,10 +734,14 @@ else:
             for display_name, sat_id in matching_satellites:
                 # Create a button for each result that looks like a search result
                 if st.sidebar.button(display_name, key=f"sat_{sat_id}"):
-                    st.session_state['selected_satellite'] = sat_id
-                    st.session_state['selected_satellite_name'] = display_name
-                    # Rerun to update the selection immediately
-                    st.rerun()
+                    # Only reload if we're changing satellites
+                    if 'selected_satellite' not in st.session_state or st.session_state['selected_satellite'] != sat_id:
+                        st.session_state['selected_satellite'] = sat_id
+                        st.session_state['selected_satellite_name'] = display_name
+                        # Auto-load data when satellite changes
+                        load_satellite_data()
+                        # Rerun to update the selection immediately
+                        st.rerun()
             st.sidebar.markdown('</div>', unsafe_allow_html=True)
         else:
             st.sidebar.info("No satellites found. Try a different search term.")
@@ -746,63 +788,77 @@ else:
 
     # Display date suggestion
     st.sidebar.info(date_suggestion)
+    
+    # Add a "Last 30 Days" button for easy date selection
+    col1, col2 = st.sidebar.columns([1, 1])
+    with col1:
+        if st.button("Last 30 Days"):
+            st.session_state['start_date'] = today - timedelta(days=30)
+            st.session_state['end_date'] = today
+            load_satellite_data()
+            st.rerun()
+    
+    with col2:
+        if st.button("Last 7 Days"):
+            st.session_state['start_date'] = today - timedelta(days=7)
+            st.session_state['end_date'] = today
+            load_satellite_data()
+            st.rerun()
 
+    # Date input with auto-loading
+    if 'start_date' not in st.session_state:
+        st.session_state['start_date'] = default_start_date
+    
+    if 'end_date' not in st.session_state:
+        st.session_state['end_date'] = today
+    
     start_date = st.sidebar.date_input(
         "Start Date",
-        value=default_start_date,
-        help="Select start date for data filtering"
+        value=st.session_state['start_date'],
+        help="Select start date for data filtering",
+        key="start_date_input"  # Unique key for the widget
     )
+    
+    # Update session state and auto-load when date changes
+    if 'start_date_input' in st.session_state and st.session_state['start_date'] != st.session_state['start_date_input']:
+        st.session_state['start_date'] = st.session_state['start_date_input']
+        load_satellite_data()
 
     end_date = st.sidebar.date_input(
         "End Date",
-        value=today,
-        help="Select end date for data filtering"
+        value=st.session_state['end_date'],
+        help="Select end date for data filtering",
+        key="end_date_input"  # Unique key for the widget
     )
+    
+    # Update session state and auto-load when date changes
+    if 'end_date_input' in st.session_state and st.session_state['end_date'] != st.session_state['end_date_input']:
+        st.session_state['end_date'] = st.session_state['end_date_input']
+        load_satellite_data()
 
     # Alert type filter
     alert_types = db.get_alert_types(engine)
+    
+    # Initialize alert types in session state if not present
+    if 'selected_alert_types' not in st.session_state:
+        st.session_state['selected_alert_types'] = alert_types
+        
     selected_alert_types = st.sidebar.multiselect(
         "Alert Types",
         options=alert_types,
-        default=alert_types,
+        default=st.session_state['selected_alert_types'],
+        key="alert_types_input",
         help="Select alert types to include"
     )
-
-    # Load data button
-    if st.sidebar.button("Load Data"):
-        # Show our custom satellite loading animation instead of the default spinner
-        with satellite_spinner(f"Loading trajectory data for satellite {selected_satellite}..."):
-            try:
-                # Get data from database or Space-Track
-                df = db.get_trajectory_data(
-                    engine, 
-                    selected_satellite, 
-                    start_date, 
-                    end_date, 
-                    selected_alert_types
-                )
-                
-                if df.empty:
-                    if has_space_track_credentials:
-                        st.warning(f"No data found for satellite {selected_satellite} in the selected date range. Try a different satellite or date range.")
-                    else:
-                        st.warning("No data found. Please enter Space-Track.org credentials to access real satellite data.")
-                    st.stop()
-                    
-                # Store the data in session state for reuse
-                st.session_state['trajectory_data'] = df
-                st.session_state['satellite_id'] = selected_satellite
-                
-                # Add satellite name to session state if available
-                if 'satellite_name' in df.columns:
-                    satellite_name = df['satellite_name'].iloc[0]
-                    st.session_state['satellite_name'] = satellite_name
-                
-            except Exception as e:
-                st.error(f"Error retrieving data: {str(e)}")
-                st.stop()
-        
-        st.success(f"Loaded {len(df)} trajectory points for satellite {selected_satellite}")
+    
+    # Update session state and auto-load when alert types change
+    if 'alert_types_input' in st.session_state and st.session_state['selected_alert_types'] != st.session_state['alert_types_input']:
+        st.session_state['selected_alert_types'] = st.session_state['alert_types_input']
+        load_satellite_data()
+    
+    # Still keep a manual load button for explicit refreshes
+    if st.sidebar.button("Refresh Data"):
+        load_satellite_data()
 
 # Display data and visualizations if data is loaded
 if 'trajectory_data' in st.session_state:
@@ -1788,7 +1844,50 @@ else:
                 
         elif data_category == "Conjunction Data":
             st.sidebar.subheader("Conjunction Data Filters")
-            days_back = st.sidebar.slider("Days to look back", 1, 30, 7)
+            
+            # Date selection options
+            today = datetime.now()
+            
+            # Add a date range selector with "Last 30 Days" option
+            date_selector = st.sidebar.radio(
+                "Date Selection Method",
+                ["Date Range", "Days Lookback"],
+                help="Choose how to filter data by date"
+            )
+            
+            if date_selector == "Date Range":
+                # Date range selector
+                conjunction_start_date = st.sidebar.date_input(
+                    "Start Date",
+                    value=today - timedelta(days=7),
+                    help="Select start date for conjunction data"
+                )
+                
+                conjunction_end_date = st.sidebar.date_input(
+                    "End Date",
+                    value=today,
+                    help="Select end date for conjunction data"
+                )
+                
+                # Calculate days_back from date range for API call
+                days_back = (today - conjunction_start_date).days
+                
+                # Quick preset buttons
+                col1, col2 = st.sidebar.columns(2)
+                with col1:
+                    if st.button("Last 30 Days", key="conj_30days"):
+                        days_back = 30
+                with col2:
+                    if st.button("Last 7 Days", key="conj_7days"):
+                        days_back = 7
+            else:
+                # Slider for days lookback
+                days_back = st.sidebar.slider("Days to look back", 1, 365, 7)
+            
+            # Add a date info display
+            st.sidebar.info(f"Looking back {days_back} days (from {(today - timedelta(days=days_back)).strftime('%Y-%m-%d')} to {today.strftime('%Y-%m-%d')})")
+            
+            # Number of records
             limit = st.sidebar.slider("Number of records", 10, 500, 100)
             
             if st.sidebar.button("Load Conjunction Data"):
