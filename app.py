@@ -613,34 +613,12 @@ else:
     id_to_display_name = {sat_id: f"{name} (ID: {sat_id})" for sat_id, name in satellites_dict.items()}
     display_name_to_id = {f"{name} (ID: {sat_id})": sat_id for sat_id, name in satellites_dict.items()}
 
-    # Satellite selection with autocomplete search
-    st.sidebar.subheader("Satellite Selection")
-    
-    # Add search field with autocomplete
-    search_query = st.sidebar.text_input(
-        "Search satellite by name/ID",
-        help="Type to search for satellites by name or ID",
-        placeholder="e.g., ISS, Hubble, NOAA"
+    # Satellite selection
+    selected_satellite_display = st.sidebar.selectbox(
+        "Select Satellite",
+        options=satellite_options,
+        help="Choose a satellite to view its trajectory data"
     )
-    
-    # Filter satellites based on search query
-    filtered_satellites = satellite_options
-    if search_query:
-        filtered_satellites = [sat for sat in satellite_options 
-                             if search_query.lower() in sat.lower()]
-    
-    # Show filtered satellite list
-    if not filtered_satellites:
-        st.sidebar.warning(f"No satellites match '{search_query}'")
-        # Use the first satellite as default if no matches
-        selected_satellite_display = satellite_options[0]
-    else:
-        # Select from filtered list
-        selected_satellite_display = st.sidebar.selectbox(
-            "Select from matches",
-            options=filtered_satellites,
-            help="Choose a satellite to view its trajectory data"
-        )
 
     # Extract the actual satellite ID from the selection
     selected_satellite = display_name_to_id[selected_satellite_display]
@@ -1106,64 +1084,44 @@ else:
         </div>
         """, unsafe_allow_html=True)
         
-        # Features section with equal height cards
+        # Features section with cards
         st.markdown('<h2>Platform Capabilities</h2>', unsafe_allow_html=True)
         
-        # Use a container with a grid layout for equal height cards
-        st.markdown("""
-        <style>
-        .feature-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 20px;
-            margin-bottom: 30px;
-        }
+        col1, col2 = st.columns(2)
         
-        .feature-card {
-            display: flex;
-            flex-direction: column;
-            min-height: 200px; /* Fixed minimum height for all cards */
-        }
-        
-        .feature-content {
-            flex-grow: 1; /* This makes the content expand to fill the card */
-        }
-        </style>
-        
-        <div class="feature-grid">
+        with col1:
+            st.markdown("""
             <div class="feature-card">
                 <div class="feature-icon">📡</div>
                 <h3>Real-time Data Access</h3>
-                <div class="feature-content">
-                    <p>Connect to Space-Track.org API to retrieve actual satellite trajectory data from the Combined Space Operations Center (CSpOC).</p>
-                </div>
+                <p>Connect to Space-Track.org API to retrieve actual satellite trajectory data from the Combined Space Operations Center (CSpOC).</p>
             </div>
+            """, unsafe_allow_html=True)
             
-            <div class="feature-card">
-                <div class="feature-icon">🌐</div>
-                <h3>Interactive Visualization</h3>
-                <div class="feature-content">
-                    <p>Explore satellite trajectories with dynamic 2D and 3D visualizations showing position, altitude, and other parameters.</p>
-                </div>
-            </div>
-            
+            st.markdown("""
             <div class="feature-card">
                 <div class="feature-icon">🔍</div>
                 <h3>Advanced Analysis</h3>
-                <div class="feature-content">
-                    <p>Apply statistical methods to analyze trajectory patterns, detect anomalies, and calculate key orbital metrics.</p>
-                </div>
+                <p>Apply statistical methods to analyze trajectory patterns, detect anomalies, and calculate key orbital metrics.</p>
             </div>
+            """, unsafe_allow_html=True)
+        
+        with col2:
+            st.markdown("""
+            <div class="feature-card">
+                <div class="feature-icon">🌐</div>
+                <h3>Interactive Visualization</h3>
+                <p>Explore satellite trajectories with dynamic 2D and 3D visualizations showing position, altitude, and other parameters.</p>
+            </div>
+            """, unsafe_allow_html=True)
             
+            st.markdown("""
             <div class="feature-card">
                 <div class="feature-icon">💾</div>
                 <h3>Optimized Performance</h3>
-                <div class="feature-content">
-                    <p>Cached database storage provides fast access to historical data with SGP4 orbital propagation for accurate calculations.</p>
-                </div>
+                <p>Cached database storage provides fast access to historical data with SGP4 orbital propagation for accurate calculations.</p>
             </div>
-        </div>
-        """, unsafe_allow_html=True)
+            """, unsafe_allow_html=True)
         
         # Move Getting Started section to the bottom box
         st.markdown("""
