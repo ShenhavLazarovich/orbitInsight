@@ -380,6 +380,15 @@
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
 }
 
+.welcome-tutorial-box {
+    background: rgba(16, 24, 39, 0.6);
+    border-radius: 12px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    border: 1px solid rgba(79, 139, 249, 0.15);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
 .tutorial-steps {
     padding-left: 1.5rem;
 }

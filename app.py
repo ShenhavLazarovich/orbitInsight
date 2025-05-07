@@ -1084,6 +1084,20 @@ else:
         </div>
         """, unsafe_allow_html=True)
         
+        # Move Getting Started section to the top empty box
+        st.markdown("""
+        <div class="welcome-tutorial-box">
+            <h2>Getting Started</h2>
+            <ol class="tutorial-steps">
+                <li><strong>Enter Credentials:</strong> Provide your Space-Track.org login details to access real satellite data</li>
+                <li><strong>Select Satellite:</strong> Choose from available satellites in the sidebar menu</li>
+                <li><strong>Set Time Range:</strong> Define the analysis period using the date selectors</li>
+                <li><strong>Load Data:</strong> Click the "Load Data" button to retrieve trajectory information</li>
+                <li><strong>Explore Results:</strong> Navigate through data tables, visualizations, and analysis tools</li>
+            </ol>
+        </div>
+        """, unsafe_allow_html=True)
+        
         # Features section with cards
         st.markdown('<h2>Platform Capabilities</h2>', unsafe_allow_html=True)
         
@@ -1122,22 +1136,7 @@ else:
                 <p>Cached database storage provides fast access to historical data with SGP4 orbital propagation for accurate calculations.</p>
             </div>
             """, unsafe_allow_html=True)
-        
-        # How to get started section
-        st.markdown('<div class="welcome-tutorial">', unsafe_allow_html=True)
-        st.markdown('<h2>Getting Started</h2>', unsafe_allow_html=True)
-        
-        st.markdown("""
-        <ol class="tutorial-steps">
-            <li><strong>Enter Credentials:</strong> Provide your Space-Track.org login details to access real satellite data</li>
-            <li><strong>Select Satellite:</strong> Choose from available satellites in the sidebar menu</li>
-            <li><strong>Set Time Range:</strong> Define the analysis period using the date selectors</li>
-            <li><strong>Load Data:</strong> Click the "Load Data" button to retrieve trajectory information</li>
-            <li><strong>Explore Results:</strong> Navigate through data tables, visualizations, and analysis tools</li>
-        </ol>
-        """, unsafe_allow_html=True)
-        
-        st.markdown('</div>', unsafe_allow_html=True)  # Close welcome-tutorial
+            
         st.markdown('</div>', unsafe_allow_html=True)  # Close welcome-container
     else:
         # Handle other data categories
