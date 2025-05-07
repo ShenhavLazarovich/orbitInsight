@@ -590,14 +590,35 @@ if data_category != "Trajectories":
     pass
 else:
     # Show the satellite trajectory filters
+    # Create a search box for satellite name
+    search_query = st.sidebar.text_input(
+        "Search by satellite name or ID",
+        value="",
+        placeholder="Type to search (e.g., ISS, Hubble, Starlink)",
+        help="Search for satellites by name or ID. Searches across all satellites in SpaceTrack database."
+    )
+    
+    # Add a search button to trigger the Space-Track search
+    search_button = st.sidebar.button("Search SpaceTrack Database")
+    
+    # Display a spinner while searching
+    search_spinner = st.sidebar.empty()
+    if search_button or (search_query and len(search_query) >= 3):
+        search_spinner.info(f"Searching for satellites matching '{search_query}'...")
+    
     try:
         # Get available satellites with names
-        satellites_dict = db.get_satellites(engine)
+        satellites_dict = db.get_satellites(engine, search_query if search_button or len(search_query) >= 3 else None)
         
         if not satellites_dict:
             st.warning("No satellite data found. Make sure Space-Track.org credentials are set.")
             st.stop()
-            
+        else:
+            if search_button or (search_query and len(search_query) >= 3):
+                search_spinner.success(f"Found satellites matching '{search_query}'")
+            else:
+                search_spinner.empty()
+                
     except Exception as e:
         st.error(f"Error retrieving satellite data: {str(e)}")
         st.stop()
@@ -613,17 +634,6 @@ else:
     id_to_display_name = {sat_id: f"{name} (ID: {sat_id})" for sat_id, name in satellites_dict.items()}
     display_name_to_id = {f"{name} (ID: {sat_id})": sat_id for sat_id, name in satellites_dict.items()}
 
-    # Satellite selection with search functionality
-    st.sidebar.subheader("Satellite Search")
-    
-    # Create a search box for satellite name
-    search_query = st.sidebar.text_input(
-        "Search by satellite name or ID",
-        value="",
-        placeholder="Type to search (e.g., ISS, Hubble, Starlink)",
-        help="Search for satellites by name or ID"
-    )
-    
     # Filter satellites based on search query (case-insensitive)
     filtered_satellites = satellite_options
     if search_query:

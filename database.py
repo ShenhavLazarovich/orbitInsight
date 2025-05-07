@@ -126,8 +126,91 @@ def get_satellites(engine, search_query=None):
                     print("Failed to import space_track module")
                     satellite_list = []
                 else:
-                    # Get satellite data from Space-Track
-                    satellite_list, _ = st.get_satellite_data(limit=200)  # Get more satellites
+                    # If we have a search query, perform a direct search in SpaceTrack
+                    if search_query:
+                        print(f"Searching Space-Track for satellites matching: {search_query}")
+                        # Create SpaceTrack client instance
+                        client = st.SpaceTrackClient()
+                        try:
+                            # Use wildcard search for the name (add % before and after for SQL LIKE search)
+                            search_pattern = f"%{search_query}%"
+                            print(f"Using search pattern: {search_pattern}")
+                            tle_data = client.get_latest_tle(satellite_name=search_pattern, limit=500)
+                            
+                            # Create satellite list from TLE results
+                            satellite_list = []
+                            if not tle_data.empty:
+                                for _, sat in tle_data.iterrows():
+                                    if 'NORAD_CAT_ID' in sat and 'OBJECT_NAME' in sat:
+                                        # Include launch date if available
+                                        launch_date = sat.get('LAUNCH_DATE', 'Unknown')
+                                        # Create display name with launch date if available
+                                        display_name = sat['OBJECT_NAME']
+                                        if launch_date and launch_date != 'Unknown':
+                                            try:
+                                                # Format nicely if it's a valid date
+                                                launch_date_obj = pd.to_datetime(launch_date)
+                                                display_name = f"{sat['OBJECT_NAME']} (Launched: {launch_date_obj.strftime('%Y-%m-%d')})"
+                                            except:
+                                                # Use as is if can't parse
+                                                display_name = f"{sat['OBJECT_NAME']} (Launched: {launch_date})"
+                                        
+                                        satellite_list.append({
+                                            'id': sat['NORAD_CAT_ID'],
+                                            'name': display_name,
+                                            'launch_date': launch_date
+                                        })
+                                print(f"Found {len(satellite_list)} satellites matching '{search_query}' from TLE data")
+                            else:
+                                print(f"No satellites found from TLE data matching '{search_query}'")
+                                
+                            # Also search the satellite catalog if we didn't find many results
+                            if len(satellite_list) < 50:
+                                try:
+                                    print("Searching satellite catalog...")
+                                    satcat = client.get_satellite_catalog(limit=500)
+                                    if not satcat.empty:
+                                        # Filter by search term (case-insensitive)
+                                        if 'OBJECT_NAME' in satcat.columns:
+                                            satcat_filtered = satcat[satcat['OBJECT_NAME'].str.contains(search_query, case=False, na=False)]
+                                            
+                                            for _, sat in satcat_filtered.iterrows():
+                                                if 'NORAD_CAT_ID' in sat and 'OBJECT_NAME' in sat:
+                                                    # Skip if we already have this satellite
+                                                    if sat['NORAD_CAT_ID'] in [s['id'] for s in satellite_list]:
+                                                        continue
+                                                        
+                                                    # Include launch date if available
+                                                    launch_date = sat.get('LAUNCH_DATE', 'Unknown')
+                                                    # Create display name with launch date if available
+                                                    display_name = sat['OBJECT_NAME']
+                                                    if launch_date and launch_date != 'Unknown':
+                                                        try:
+                                                            # Format nicely if it's a valid date
+                                                            launch_date_obj = pd.to_datetime(launch_date)
+                                                            display_name = f"{sat['OBJECT_NAME']} (Launched: {launch_date_obj.strftime('%Y-%m-%d')})"
+                                                        except:
+                                                            # Use as is if can't parse
+                                                            display_name = f"{sat['OBJECT_NAME']} (Launched: {launch_date})"
+                                                    
+                                                    satellite_list.append({
+                                                        'id': sat['NORAD_CAT_ID'],
+                                                        'name': display_name,
+                                                        'launch_date': launch_date
+                                                    })
+                                        print(f"Total satellites found after catalog search: {len(satellite_list)}")
+                                except Exception as e:
+                                    print(f"Error searching satellite catalog: {e}")
+                                
+                        except Exception as search_error:
+                            print(f"Error searching SpaceTrack: {search_error}")
+                            traceback.print_exc()
+                            satellite_list = []
+                        finally:
+                            client.close()
+                    else:
+                        # If no search query, use the standard approach to get a list of satellites
+                        satellite_list, _ = st.get_satellite_data(limit=200)  # Get more satellites
                 
                 # Process the results
                 if satellite_list:
