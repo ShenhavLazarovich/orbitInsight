@@ -575,23 +575,7 @@ else:
 # Sidebar for filters and controls
 st.sidebar.header("Data Filters")
 
-# Add About Me section to sidebar
-with st.sidebar.expander("About Developer", expanded=False):
-    st.markdown("""
-    ### About the Developer
-    Hello! I'm Shenhav Lazarovich, the developer behind OrbitInsight - an advanced SpaceTrack.com analysis platform.
-    
-    As a space technology enthusiast, I built this application to make satellite tracking and space object data more accessible and insightful.
-    
-    ### Support My Work
-    If you find this application useful, please consider supporting my work:
-    
-    <a href="https://buymeacoffee.com/shenhavlazarovich" target="_blank">
-        <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 40px;width: auto;" >
-    </a>
-    
-    Thank you for using OrbitInsight!
-    """, unsafe_allow_html=True)
+# About Me content is now moved to the main welcome page
 
 # Connect to database (needed for all data categories)
 try:
@@ -1150,6 +1134,25 @@ else:
                 <li><strong>Load Data:</strong> Click the "Load Data" button to retrieve trajectory information</li>
                 <li><strong>Explore Results:</strong> Navigate through data tables, visualizations, and analysis tools</li>
             </ol>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # About Me section at the bottom of main page
+        st.markdown("""
+        <div class="welcome-tutorial-box about-developer">
+            <h2>About the Developer</h2>
+            <p>Hello! I'm Shenhav Lazarovich, the developer behind OrbitInsight.</p>
+            
+            <p>As a space technology enthusiast, I built this application to make satellite tracking and space object data more accessible and insightful.</p>
+            
+            <h3>Support My Work</h3>
+            <p>If you find this application useful, please consider supporting my work:</p>
+            
+            <a href="https://buymeacoffee.com/shenhavlazarovich" target="_blank">
+                <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 40px;width: auto;" >
+            </a>
+            
+            <p>Thank you for using OrbitInsight!</p>
         </div>
         """, unsafe_allow_html=True)
             
