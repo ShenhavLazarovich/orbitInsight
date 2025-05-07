@@ -88,7 +88,8 @@ def get_satellites(engine, search_query=None):
         "20580": "Hubble Space Telescope (Launched: 1990-04-24)",
         "41866": "GOES-16 (Geostationary Operational Environmental Satellite) (Launched: 2016-11-19)",
         "39084": "Landsat-8 (Earth Observation Satellite) (Launched: 2013-02-11)",
-        "25994": "Terra (Earth Observing System Flagship) (Launched: 1999-12-18)"
+        "25994": "Terra (Earth Observing System Flagship) (Launched: 1999-12-18)",
+        "99001": "OpSat3000 (Earth Observation Satellite) (Launched: 2023-06-15)" # Added OpSat3000 with a unique ID
     }
     
     # Check if we need to populate database with sample data for Hubble
@@ -151,7 +152,13 @@ def get_satellites(engine, search_query=None):
                             for key, info in special_cases.items():
                                 if key in search_lower or search_lower in key:
                                     special_case = info
+                                    print(f"Found special case match for '{search_query}': {key} -> {info}")
                                     break
+                                    
+                            # Add specific handling for OpSat3000
+                            if 'opsat' in search_lower:
+                                special_case = {'name': 'OPSAT', 'alternative_names': ['OPSAT3000', 'OPSAT 3000']}
+                                print(f"Special handling for OpSat: {special_case}")
                                     
                             if special_case:
                                 # For satellites with known IDs, try direct lookup
@@ -724,13 +731,18 @@ def get_trajectory_data_from_db(engine, satellite_id, start_date, end_date, aler
     # Return empty DataFrame if no data found
     return pd.DataFrame()
 
-def create_hubble_sample_data(engine):
+def create_sample_satellite_data(engine, satellite_id, satellite_name, orbit_radius, orbit_period=95, alt_variation=0.05):
     """
-    Create sample trajectory data for Hubble Space Telescope.
+    Create sample trajectory data for a satellite.
     This is used as a fallback when Space-Track API doesn't return data.
     
     Args:
         engine: SQLAlchemy database engine
+        satellite_id: ID of the satellite to create data for
+        satellite_name: Name of the satellite
+        orbit_radius: Radius of the orbit in meters (Earth radius + altitude)
+        orbit_period: Orbit period in minutes (default: 95)
+        alt_variation: Variation in altitude as a fraction of orbit_radius (default: 0.05)
     """
     try:
         # First, check if the table exists
