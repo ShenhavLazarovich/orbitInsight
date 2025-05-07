@@ -34,12 +34,13 @@ def replace_replit_running_icon():
         content: "";
         background-image: url('./static/orbitinsight_logo.svg');
         background-size: contain;
+        background-position: center;
         background-repeat: no-repeat;
         width: 24px;
         height: 24px;
         margin-right: 0.5rem;
         animation: satellite-pulse 4s ease-in-out infinite;
-        display: inline-block;
+        display: inline-block !important;
     }
     
     @keyframes satellite-pulse {
@@ -78,12 +79,14 @@ def replace_replit_running_icon():
         content: "";
         background-image: url('./static/orbitinsight_logo.svg');
         background-size: contain;
+        background-position: center;
         background-repeat: no-repeat;
         width: 30px;
         height: 30px;
         animation: orbit 2s linear infinite;
         position: absolute;
-        display: block;
+        display: block !important;
+        z-index: 10;
     }
     
     .loading-icon > * {
@@ -454,7 +457,7 @@ def satellite_spinner(text="Loading satellite data..."):
                     {stars_html}
                     <div class="planet"></div>
                     <div class="planet-rings"></div>
-                    <img src="satellite.svg" class="orbitinsight-satellite" style="
+                    <img src="./static/orbitinsight_logo.svg" class="orbitinsight-satellite" style="
                         position: absolute;
                         width: 40px;
                         height: 40px;
