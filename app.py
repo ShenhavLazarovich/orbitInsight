@@ -619,9 +619,71 @@ if 'trajectory_data' in st.session_state:
             st.write(f"Data points: {len(df)}")
             st.write(f"Columns available: {', '.join(df.columns)}")
             
-            # Create the plot
-            fig = vis.plot_altitude_profile(df)
-            st.plotly_chart(fig, use_container_width=True)
+            # Show min and max altitude values to help diagnose scaling issues
+            min_alt = df['altitude'].min()
+            max_alt = df['altitude'].max()
+            st.write(f"Altitude range: {min_alt:.2f} to {max_alt:.2f} meters")
+            
+            # Create a direct plot instead of using the visualization module
+            # This will help bypass potential issues in the visualization function
+            try:
+                # Make a copy of the dataframe to avoid modifying the original
+                plot_df = df.copy()
+                
+                # Convert to km for better readability if values are large
+                if max_alt > 100000:  # If more than 100km, use kilometers
+                    plot_df['altitude_km'] = plot_df['altitude'] / 1000
+                    y_column = 'altitude_km'
+                    y_label = 'Altitude (km)'
+                else:
+                    y_column = 'altitude'
+                    y_label = 'Altitude (m)'
+                
+                # Ensure we have timestamp for x-axis, otherwise use index
+                if 'timestamp' in plot_df.columns:
+                    plot_df = plot_df.sort_values('timestamp')
+                    x_column = 'timestamp'
+                    x_label = 'Time'
+                else:
+                    x_column = plot_df.index
+                    x_label = 'Data Point'
+                
+                # Create a direct Plotly Express plot
+                import plotly.express as px
+                fig = px.line(
+                    plot_df, 
+                    x=x_column, 
+                    y=y_column,
+                    title="Satellite Altitude Profile",
+                    labels={x_column: x_label, y_column: y_label}
+                )
+                
+                # Add a smoother trend line (moving average)
+                if len(plot_df) > 5:
+                    import plotly.graph_objects as go
+                    fig.add_trace(
+                        go.Scatter(
+                            x=plot_df[x_column] if x_column != plot_df.index else plot_df.index,
+                            y=plot_df[y_column].rolling(window=5, min_periods=1).mean(),
+                            mode='lines',
+                            name='Moving Average (5)',
+                            line=dict(color='rgba(255, 0, 0, 0.7)', width=2)
+                        )
+                    )
+                
+                # Display the plot
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # Also try the visualization module as a fallback
+                st.write("#### Alternative Visualization:")
+                fig2 = vis.plot_altitude_profile(df)
+                st.plotly_chart(fig2, use_container_width=True)
+                
+            except Exception as e:
+                st.error(f"Error creating direct plot: {e}")
+                # Fall back to the visualization module
+                fig = vis.plot_altitude_profile(df)
+                st.plotly_chart(fig, use_container_width=True)
     
     with tab3:
         st.subheader("Trajectory Analysis")
