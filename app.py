@@ -1085,7 +1085,6 @@ else:
         """, unsafe_allow_html=True)
         
         # Features section with cards
-        st.markdown('<div class="welcome-features">', unsafe_allow_html=True)
         st.markdown('<h2>Platform Capabilities</h2>', unsafe_allow_html=True)
         
         col1, col2 = st.columns(2)
@@ -1139,7 +1138,6 @@ else:
         """, unsafe_allow_html=True)
         
         st.markdown('</div>', unsafe_allow_html=True)  # Close welcome-tutorial
-        st.markdown('</div>', unsafe_allow_html=True)  # Close welcome-features
         st.markdown('</div>', unsafe_allow_html=True)  # Close welcome-container
     else:
         # Handle other data categories
