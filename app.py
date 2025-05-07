@@ -32,7 +32,7 @@ def replace_replit_running_icon():
     .runner-header-icon::before,
     .run-status-indicator::before {
         content: "";
-        background-image: url('./static/orbitinsight_logo.svg');
+        background-image: url('./static/satellite.svg');
         background-size: contain;
         background-position: center;
         background-repeat: no-repeat;
@@ -51,7 +51,7 @@ def replace_replit_running_icon():
     
     /* Style running text */
     .run-status-running::after {
-        content: "ORBITINSIGHT ACTIVE...";
+        content: "SATELLITE TRACKING ACTIVE...";
         font-weight: bold;
         color: #4F8BF9;
     }
@@ -77,7 +77,7 @@ def replace_replit_running_icon():
     
     .loading-icon::before {
         content: "";
-        background-image: url('./static/orbitinsight_logo.svg');
+        background-image: url('./static/satellite.svg');
         background-size: contain;
         background-position: center;
         background-repeat: no-repeat;
@@ -408,7 +408,7 @@ def satellite_loading(message="Loading satellite data..."):
             {stars_html}
             <div class="planet"></div>
             <div class="planet-rings"></div>
-            <img src="./static/orbitinsight_logo.svg" class="orbitinsight-satellite" style="
+            <img src="./static/satellite.svg" class="orbitinsight-satellite" style="
                 position: absolute;
                 width: 40px;
                 height: 40px;
@@ -457,7 +457,7 @@ def satellite_spinner(text="Loading satellite data..."):
                     {stars_html}
                     <div class="planet"></div>
                     <div class="planet-rings"></div>
-                    <img src="./static/orbitinsight_logo.svg" class="orbitinsight-satellite" style="
+                    <img src="./static/satellite.svg" class="orbitinsight-satellite" style="
                         position: absolute;
                         width: 40px;
                         height: 40px;
@@ -483,7 +483,7 @@ def satellite_spinner(text="Loading satellite data..."):
 st.markdown("""
 <div class="main-header">
     <div class="main-header-logo">
-        <img src="./static/orbitinsight_logo.svg" width="68" height="68" alt="OrbitInsight Logo">
+        <img src="./static/satellite.svg" width="68" height="68" alt="OrbitInsight Logo">
     </div>
     <div class="main-header-content">
         <h1>OrbitInsight</h1>

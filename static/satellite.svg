@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="100px" height="100px" viewBox="0 0 100 100" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <!-- Satellite Body -->
+        <rect fill="#FFFFFF" x="40" y="40" width="20" height="20" rx="2"></rect>
+        
+        <!-- Antenna -->
+        <path d="M50,30 L50,40" stroke="#4F8BF9" stroke-width="2"></path>
+        <circle fill="#4F8BF9" cx="50" cy="28" r="3"></circle>
+        
+        <!-- Solar Panels -->
+        <rect fill="#4F8BF9" x="10" y="45" width="30" height="10" rx="1"></rect>
+        <rect fill="#4F8BF9" x="60" y="45" width="30" height="10" rx="1"></rect>
+        
+        <!-- Panel Connectors -->
+        <path d="M40,50 L10,50" stroke="#FFFFFF" stroke-width="2"></path>
+        <path d="M60,50 L90,50" stroke="#FFFFFF" stroke-width="2"></path>
+        
+        <!-- Dish -->
+        <path d="M45,65 C45,70 55,70 55,65" stroke="#FFFFFF" stroke-width="2" fill="none"></path>
+    </g>
+</svg>
