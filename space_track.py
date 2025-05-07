@@ -86,7 +86,7 @@ class SpaceTrackClient:
             print(f"Error fetching TLE data: {e}")
             return pd.DataFrame()
         
-    def get_satellite_catalog(self, limit=100):
+    def get_satellite_catalog(self, limit=200):
         """
         Get the satellite catalog information
         
@@ -623,7 +623,7 @@ class SpaceTrackClient:
         self.session.close()
         self.authenticated = False
 
-def get_satellite_data(satellite_ids=None, start_date=None, end_date=None, limit=10):
+def get_satellite_data(satellite_ids=None, start_date=None, end_date=None, limit=200):
     """
     Fetch satellite data from Space-Track.org and return it in a format 
     compatible with the dashboard.

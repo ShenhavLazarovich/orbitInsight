@@ -126,7 +126,7 @@ def get_satellites(engine):
                     satellite_list = []
                 else:
                     # Get satellite data from Space-Track
-                    satellite_list, _ = st.get_satellite_data(limit=50)  # Get more satellites
+                    satellite_list, _ = st.get_satellite_data(limit=200)  # Get more satellites
                 
                 # Process the results
                 if satellite_list:
