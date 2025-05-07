@@ -613,16 +613,48 @@ else:
     id_to_display_name = {sat_id: f"{name} (ID: {sat_id})" for sat_id, name in satellites_dict.items()}
     display_name_to_id = {f"{name} (ID: {sat_id})": sat_id for sat_id, name in satellites_dict.items()}
 
-    # Satellite selection
-    selected_satellite_display = st.sidebar.selectbox(
-        "Select Satellite",
-        options=satellite_options,
-        help="Choose a satellite to view its trajectory data"
+    # Satellite selection with search functionality
+    st.sidebar.subheader("Satellite Search")
+    
+    # Create a search box for satellite name
+    search_query = st.sidebar.text_input(
+        "Search by satellite name or ID",
+        value="",
+        placeholder="Type to search (e.g., ISS, Hubble, Starlink)",
+        help="Search for satellites by name or ID"
     )
-
+    
+    # Filter satellites based on search query (case-insensitive)
+    filtered_satellites = satellite_options
+    if search_query:
+        filtered_satellites = [
+            option for option in satellite_options 
+            if search_query.lower() in option.lower()
+        ]
+    
+    # Show the number of results when searching
+    if search_query and len(filtered_satellites) < len(satellite_options):
+        st.sidebar.caption(f"Found {len(filtered_satellites)} satellites matching '{search_query}'")
+    
+    # Display a dropdown with the filtered options
+    if not filtered_satellites:
+        st.sidebar.warning(f"No satellites matching '{search_query}'. Try another search term.")
+        # Add a button to clear the search
+        if st.sidebar.button("Clear Search"):
+            # This will trigger a rerun with empty search
+            st.rerun()
+        # Use the first satellite as default if no matches (to avoid errors)
+        selected_satellite_display = satellite_options[0]
+    else:
+        selected_satellite_display = st.sidebar.selectbox(
+            "Select Satellite",
+            options=filtered_satellites,
+            help="Choose a satellite to view its trajectory data"
+        )
+    
     # Extract the actual satellite ID from the selection
     selected_satellite = display_name_to_id[selected_satellite_display]
-
+    
     # Store the display name for later use
     st.session_state['selected_satellite_name'] = selected_satellite_display
 
