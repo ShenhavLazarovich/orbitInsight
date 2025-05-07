@@ -495,10 +495,9 @@ st.markdown("""
 # Add tabs for different data categories at the top of the app
 data_category = st.radio(
     "Select Data Category",
-    ["Welcome", "Trajectories", "Satellite Catalog", "Launch Sites", "Decay Data", "Conjunction Data", "Boxscore Data"],
+    ["Trajectories", "Satellite Catalog", "Launch Sites", "Decay Data", "Conjunction Data", "Boxscore Data"],
     horizontal=True,
-    help="Choose which type of space data to explore",
-    index=0  # Default to Welcome page
+    help="Choose which type of space data to explore"
 )
 
 # Check for Space-Track credentials
@@ -614,145 +613,18 @@ else:
     id_to_display_name = {sat_id: f"{name} (ID: {sat_id})" for sat_id, name in satellites_dict.items()}
     display_name_to_id = {f"{name} (ID: {sat_id})": sat_id for sat_id, name in satellites_dict.items()}
 
-    # Create a dictionary to store satellites by name and ID for search
-    search_options = {}
-    for sat_id, name in satellites_dict.items():
-        # Store lowercase for case-insensitive search
-        search_options[name.lower()] = sat_id
-        search_options[sat_id.lower()] = sat_id
-        
-    # Add custom CSS for the search box
-    st.sidebar.markdown("""
-    <style>
-    .satellite-search {
-        margin-bottom: 0.5rem;
-    }
-    .search-results {
-        max-height: 300px;
-        overflow-y: auto;
-        border: 1px solid rgba(79, 139, 249, 0.3);
-        border-radius: 4px;
-        background-color: rgba(16, 24, 39, 0.95);
-        margin-top: 0.5rem;
-    }
-    .search-item {
-        padding: 0.5rem;
-        border-bottom: 1px solid rgba(79, 139, 249, 0.2);
-        transition: background-color 0.2s;
-        cursor: pointer;
-    }
-    .search-item:hover {
-        background-color: rgba(79, 139, 249, 0.2);
-    }
-    .search-item.selected {
-        background-color: rgba(79, 139, 249, 0.3);
-    }
-    .no-results {
-        padding: 0.5rem;
-        color: #a7c5ff;
-        font-style: italic;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-    
-    # Satellite search box with auto-suggestions
-    st.sidebar.subheader("Search Satellite")
-    search_query = st.sidebar.text_input(
-        "Type satellite name or ID",
-        help="Search by satellite name or ID number",
-        key="satellite_search",
-        placeholder="e.g. ISS, Hubble, 25544"
+    # Satellite selection
+    selected_satellite_display = st.sidebar.selectbox(
+        "Select Satellite",
+        options=satellite_options,
+        help="Choose a satellite to view its trajectory data"
     )
-    
-    # Initialize search results
-    if 'selected_satellite' not in st.session_state:
-        # Default to first satellite if nothing selected yet
-        st.session_state['selected_satellite'] = list(satellites_dict.keys())[0]
-        st.session_state['selected_satellite_name'] = id_to_display_name[st.session_state['selected_satellite']]
-    
-    # Filter satellites based on search query
-    matching_satellites = []
-    if search_query:
-        search_query = search_query.lower()
-        for display_name, sat_id in display_name_to_id.items():
-            if (search_query in display_name.lower() or 
-                search_query in sat_id.lower()):
-                matching_satellites.append((display_name, sat_id))
-        
-        # Sort by relevance (exact matches first, then starts with, then contains)
-        matching_satellites.sort(key=lambda x: (
-            0 if x[0].lower() == search_query else
-            (1 if x[0].lower().startswith(search_query) else
-             (2 if x[1].lower() == search_query else
-              (3 if x[1].lower().startswith(search_query) else 4)))
-        ))
-        
-        # Limit to top 10 matches for performance
-        matching_satellites = matching_satellites[:10]
-    
-    # Function to load data based on current filters
-    def load_satellite_data():
-        # Don't try to load if we're missing key values
-        if not hasattr(st.session_state, 'selected_satellite'):
-            return
-            
-        # Show our custom satellite loading animation instead of the default spinner
-        with satellite_spinner(f"Loading trajectory data for satellite {st.session_state['selected_satellite']}..."):
-            try:
-                # Get data from database or Space-Track
-                df = db.get_trajectory_data(
-                    engine, 
-                    st.session_state['selected_satellite'],
-                    st.session_state.get('start_date', datetime.now() - timedelta(days=7)),
-                    st.session_state.get('end_date', datetime.now()),
-                    st.session_state.get('selected_alert_types', [])
-                )
-                
-                if df.empty:
-                    if has_space_track_credentials:
-                        st.warning(f"No data found for satellite {st.session_state['selected_satellite']} in the selected date range. Try a different satellite or date range.")
-                    else:
-                        st.warning("No data found. Please enter Space-Track.org credentials to access real satellite data.")
-                    return
-                    
-                # Store the data in session state for reuse
-                st.session_state['trajectory_data'] = df
-                st.session_state['satellite_id'] = st.session_state['selected_satellite']
-                
-                # Add satellite name to session state if available
-                if 'satellite_name' in df.columns:
-                    satellite_name = df['satellite_name'].iloc[0]
-                    st.session_state['satellite_name'] = satellite_name
-                
-            except Exception as e:
-                st.error(f"Error retrieving data: {str(e)}")
-                return
-            
-    # Display search results
-    if search_query:
-        if matching_satellites:
-            st.sidebar.markdown('<div class="search-results">', unsafe_allow_html=True)
-            for display_name, sat_id in matching_satellites:
-                # Create a button for each result that looks like a search result
-                if st.sidebar.button(display_name, key=f"sat_{sat_id}"):
-                    # Only reload if we're changing satellites
-                    if 'selected_satellite' not in st.session_state or st.session_state['selected_satellite'] != sat_id:
-                        st.session_state['selected_satellite'] = sat_id
-                        st.session_state['selected_satellite_name'] = display_name
-                        # Auto-load data when satellite changes
-                        load_satellite_data()
-                        # Rerun to update the selection immediately
-                        st.rerun()
-            st.sidebar.markdown('</div>', unsafe_allow_html=True)
-        else:
-            st.sidebar.info("No satellites found. Try a different search term.")
-    
-    # Show current selection
-    st.sidebar.markdown("### Current Selection")
-    st.sidebar.info(f"Selected: {st.session_state['selected_satellite_name']}")
-    
-    # Use the selected satellite ID
-    selected_satellite = st.session_state['selected_satellite']
+
+    # Extract the actual satellite ID from the selection
+    selected_satellite = display_name_to_id[selected_satellite_display]
+
+    # Store the display name for later use
+    st.session_state['selected_satellite_name'] = selected_satellite_display
 
     # Time period selection
     st.sidebar.subheader("Time Period")
@@ -789,77 +661,63 @@ else:
 
     # Display date suggestion
     st.sidebar.info(date_suggestion)
-    
-    # Add a "Last 30 Days" button for easy date selection
-    col1, col2 = st.sidebar.columns([1, 1])
-    with col1:
-        if st.button("Last 30 Days"):
-            st.session_state['start_date'] = today - timedelta(days=30)
-            st.session_state['end_date'] = today
-            load_satellite_data()
-            st.rerun()
-    
-    with col2:
-        if st.button("Last 7 Days"):
-            st.session_state['start_date'] = today - timedelta(days=7)
-            st.session_state['end_date'] = today
-            load_satellite_data()
-            st.rerun()
 
-    # Date input with auto-loading
-    if 'start_date' not in st.session_state:
-        st.session_state['start_date'] = default_start_date
-    
-    if 'end_date' not in st.session_state:
-        st.session_state['end_date'] = today
-    
     start_date = st.sidebar.date_input(
         "Start Date",
-        value=st.session_state['start_date'],
-        help="Select start date for data filtering",
-        key="start_date_input"  # Unique key for the widget
+        value=default_start_date,
+        help="Select start date for data filtering"
     )
-    
-    # Update session state and auto-load when date changes
-    if 'start_date_input' in st.session_state and st.session_state['start_date'] != st.session_state['start_date_input']:
-        st.session_state['start_date'] = st.session_state['start_date_input']
-        load_satellite_data()
 
     end_date = st.sidebar.date_input(
         "End Date",
-        value=st.session_state['end_date'],
-        help="Select end date for data filtering",
-        key="end_date_input"  # Unique key for the widget
+        value=today,
+        help="Select end date for data filtering"
     )
-    
-    # Update session state and auto-load when date changes
-    if 'end_date_input' in st.session_state and st.session_state['end_date'] != st.session_state['end_date_input']:
-        st.session_state['end_date'] = st.session_state['end_date_input']
-        load_satellite_data()
 
     # Alert type filter
     alert_types = db.get_alert_types(engine)
-    
-    # Initialize alert types in session state if not present
-    if 'selected_alert_types' not in st.session_state:
-        st.session_state['selected_alert_types'] = alert_types
-        
     selected_alert_types = st.sidebar.multiselect(
         "Alert Types",
         options=alert_types,
-        default=st.session_state['selected_alert_types'],
-        key="alert_types_input",
+        default=alert_types,
         help="Select alert types to include"
     )
-    
-    # Update session state and auto-load when alert types change
-    if 'alert_types_input' in st.session_state and st.session_state['selected_alert_types'] != st.session_state['alert_types_input']:
-        st.session_state['selected_alert_types'] = st.session_state['alert_types_input']
-        load_satellite_data()
-    
-    # Still keep a manual load button for explicit refreshes
-    if st.sidebar.button("Refresh Data"):
-        load_satellite_data()
+
+    # Load data button
+    if st.sidebar.button("Load Data"):
+        # Show our custom satellite loading animation instead of the default spinner
+        with satellite_spinner(f"Loading trajectory data for satellite {selected_satellite}..."):
+            try:
+                # Get data from database or Space-Track
+                df = db.get_trajectory_data(
+                    engine, 
+                    selected_satellite, 
+                    start_date, 
+                    end_date, 
+                    selected_alert_types
+                )
+                
+                if df.empty:
+                    if has_space_track_credentials:
+                        st.warning(f"No data found for satellite {selected_satellite} in the selected date range. Try a different satellite or date range.")
+                    else:
+                        st.warning("No data found. Please enter Space-Track.org credentials to access real satellite data.")
+                    st.stop()
+                    
+                # Store the data in session state for reuse
+                st.session_state['trajectory_data'] = df
+                st.session_state['satellite_id'] = selected_satellite
+                
+                # Add satellite name to session state if available
+                if 'satellite_name' in df.columns:
+                    satellite_name = df['satellite_name'].iloc[0]
+                    st.session_state['satellite_name'] = satellite_name
+                
+            except Exception as e:
+                st.error(f"Error retrieving data: {str(e)}")
+                st.stop()
+        
+        st.success(f"Loaded {len(df)} trajectory points for satellite {selected_satellite}")
 
 # Display data and visualizations if data is loaded
 if 'trajectory_data' in st.session_state:
@@ -918,12 +776,9 @@ if 'trajectory_data' in st.session_state:
             </div>
             """, unsafe_allow_html=True)
         
-        # Add simple data filtering options in a styled card with proper containment
+        # Add simple data filtering options in a styled card
         st.markdown('<div class="filter-panel">', unsafe_allow_html=True)
         st.markdown('<div class="filter-title">Data Filtering Options</div>', unsafe_allow_html=True)
-        
-        # Create filter contents in a container
-        st.markdown('<div class="filter-content">', unsafe_allow_html=True)
         col1, col2 = st.columns(2)
         with col1:
             rows_to_display = st.number_input("Rows to display", min_value=10, max_value=1000, value=100, step=10)
@@ -931,9 +786,7 @@ if 'trajectory_data' in st.session_state:
         with col2:
             sort_by = st.selectbox("Sort by", options=df.columns)
             sort_order = st.radio("Sort order", options=["Ascending", "Descending"], horizontal=True)
-        st.markdown('</div>', unsafe_allow_html=True)  # Close filter-content
-        
-        st.markdown('</div>', unsafe_allow_html=True)  # Close filter-panel
+        st.markdown('</div>', unsafe_allow_html=True)
         
         # Apply sorting
         if sort_order == "Ascending":
@@ -1216,94 +1069,7 @@ if 'trajectory_data' in st.session_state:
 
 else:
     # Show appropriate content based on selected data category
-    if data_category == "Welcome":
-        # Display the welcome page as the default view
-        st.markdown('<div class="welcome-container">', unsafe_allow_html=True)
-        
-        # Main welcome header
-        st.markdown("""
-        <div class="welcome-header">
-            <h1>Welcome to OrbitInsight</h1>
-            <p>Advanced SpaceTrack.com Analysis Platform</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Features section with cards
-        st.markdown('<h2>Platform Capabilities</h2>', unsafe_allow_html=True)
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.markdown("""
-            <div class="feature-card">
-                <div class="feature-icon">📡</div>
-                <h3>Real-time Data Access</h3>
-                <p>Connect to Space-Track.org API to retrieve actual satellite trajectory data from the Combined Space Operations Center (CSpOC).</p>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            st.markdown("""
-            <div class="feature-card">
-                <div class="feature-icon">🔍</div>
-                <h3>Advanced Analysis</h3>
-                <p>Apply statistical methods to analyze trajectory patterns, detect anomalies, and calculate key orbital metrics.</p>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        with col2:
-            st.markdown("""
-            <div class="feature-card">
-                <div class="feature-icon">🌐</div>
-                <h3>Interactive Visualization</h3>
-                <p>Explore satellite trajectories with dynamic 2D and 3D visualizations showing position, altitude, and other parameters.</p>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            st.markdown("""
-            <div class="feature-card">
-                <div class="feature-icon">🔄</div>
-                <h3>Multiple Data Categories</h3>
-                <p>Access and analyze various types of space data including satellite catalog, launch sites, decay data, and more.</p>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        # Getting started tutorial
-        st.markdown('<div class="welcome-tutorial-box">', unsafe_allow_html=True)
-        st.markdown('<h2>Getting Started</h2>', unsafe_allow_html=True)
-        st.markdown("""
-        <ol class="tutorial-steps">
-            <li>Select a <strong>Data Category</strong> from the options at the top of the page.</li>
-            <li>For trajectory analysis, use the <strong>Search Satellite</strong> box in the sidebar to find a satellite.</li>
-            <li>Choose a <strong>Time Period</strong> using the date selectors or quick filter buttons.</li>
-            <li>Click <strong>Load Data</strong> to fetch the satellite trajectory information.</li>
-            <li>Explore the data using the <strong>tabs</strong> for basic info, visualizations, and analysis.</li>
-        </ol>
-        """, unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-        
-        # About Developer section (at the bottom of the welcome page)
-        st.markdown('<div class="about-developer">', unsafe_allow_html=True)
-        st.markdown("""
-        <div class="developer-content">
-            <h2>About the Developer</h2>
-            
-            <p>Hello! I'm the creator of OrbitInsight, an aerospace engineer passionate about making space data more accessible and understandable.</p>
-            
-            <h3>Project Background</h3>
-            <p>OrbitInsight was created to bridge the gap between complex space operations data and user-friendly analysis. This platform leverages the Space-Track.org API to provide real satellite tracking information with intuitive visualizations.</p>
-            
-            <h3>Technical Details</h3>
-            <p>Built with Streamlit, Python, and SQL, this application implements the SGP4 orbital propagator to calculate precise satellite positions. The interactive visualizations use Plotly for dynamic exploration of trajectory data.</p>
-            
-            <p class="thank-you">Thank you for exploring OrbitInsight!</p>
-        </div>
-        """, unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-        
-        # Close welcome container
-        st.markdown('</div>', unsafe_allow_html=True)
-        
-    elif data_category == "Trajectories":
+    if data_category == "Trajectories":
         # Display instructions if no data is loaded
         st.info("👈 Select a satellite and time period, then click 'Load Data' to begin.")
         
@@ -1937,50 +1703,7 @@ else:
                 
         elif data_category == "Conjunction Data":
             st.sidebar.subheader("Conjunction Data Filters")
-            
-            # Date selection options
-            today = datetime.now()
-            
-            # Add a date range selector with "Last 30 Days" option
-            date_selector = st.sidebar.radio(
-                "Date Selection Method",
-                ["Date Range", "Days Lookback"],
-                help="Choose how to filter data by date"
-            )
-            
-            if date_selector == "Date Range":
-                # Date range selector
-                conjunction_start_date = st.sidebar.date_input(
-                    "Start Date",
-                    value=today - timedelta(days=7),
-                    help="Select start date for conjunction data"
-                )
-                
-                conjunction_end_date = st.sidebar.date_input(
-                    "End Date",
-                    value=today,
-                    help="Select end date for conjunction data"
-                )
-                
-                # Calculate days_back from date range for API call
-                days_back = (today - conjunction_start_date).days
-                
-                # Quick preset buttons
-                col1, col2 = st.sidebar.columns(2)
-                with col1:
-                    if st.button("Last 30 Days", key="conj_30days"):
-                        days_back = 30
-                with col2:
-                    if st.button("Last 7 Days", key="conj_7days"):
-                        days_back = 7
-            else:
-                # Slider for days lookback
-                days_back = st.sidebar.slider("Days to look back", 1, 365, 7)
-            
-            # Add a date info display
-            st.sidebar.info(f"Looking back {days_back} days (from {(today - timedelta(days=days_back)).strftime('%Y-%m-%d')} to {today.strftime('%Y-%m-%d')})")
-            
-            # Number of records
+            days_back = st.sidebar.slider("Days to look back", 1, 30, 7)
             limit = st.sidebar.slider("Number of records", 10, 500, 100)
             
             if st.sidebar.button("Load Conjunction Data"):
@@ -2797,65 +2520,7 @@ else:
                 if data.empty:
                     st.warning("The boxscore data returned is empty. Try a different data category.")
                 else:
-                    # Add key insights card at the top first
-                    st.markdown('<div class="insights-card">', unsafe_allow_html=True)
-                    st.subheader("📊 Boxscore Data Insights")
-                    
-                    try:
-                        # Generate insights about the boxscore data
-                        insights = []
-                        
-                        # Total space objects
-                        total_objects = 0
-                        total_col = [col for col in data.columns if 'TOTAL' in col.upper() and 'COUNTRY' not in col.upper()]
-                        if total_col and total_col[0] in data.columns:
-                            total_objects = data[total_col[0]].sum()
-                            insights.append(f"**Total Space Objects Tracked:** {int(total_objects):,}")
-                        
-                        # Debris vs Payloads
-                        debris_col = [col for col in data.columns if 'DEBRIS' in col.upper() or 'JUNK' in col.upper()]
-                        if debris_col and debris_col[0] in data.columns:
-                            total_debris = data[debris_col[0]].sum()
-                            if total_objects > 0:
-                                debris_percent = (total_debris / total_objects) * 100
-                                insights.append(f"**Space Debris:** {int(total_debris):,} objects ({debris_percent:.1f}% of tracked objects)")
-                        
-                        # Active payloads
-                        payload_col = [col for col in data.columns if 'PAYLOAD' in col.upper()]
-                        if payload_col and payload_col[0] in data.columns:
-                            total_payloads = data[payload_col[0]].sum()
-                            if total_objects > 0:
-                                payload_percent = (total_payloads / total_objects) * 100
-                                insights.append(f"**Active Payloads:** {int(total_payloads):,} ({payload_percent:.1f}% of tracked objects)")
-                        
-                        # Countries with space objects
-                        country_col = [col for col in data.columns if 'COUNTRY' in col.upper()]
-                        if country_col and country_col[0] in data.columns:
-                            unique_countries = data[country_col[0]].nunique()
-                            insights.append(f"**Number of Countries with Space Objects:** {unique_countries}")
-                            
-                            # Top countries by object count
-                            if total_col and total_col[0] in data.columns:
-                                top_countries = data.sort_values(by=total_col[0], ascending=False).head(3)
-                                top_countries_list = []
-                                for _, row in top_countries.iterrows():
-                                    country = row[country_col[0]]
-                                    count = row[total_col[0]]
-                                    percent = (count / total_objects) * 100 if total_objects > 0 else 0
-                                    top_countries_list.append(f"{country}: {int(count):,} ({percent:.1f}%)")
-                                
-                                insights.append(f"**Top 3 Countries by Object Count:**  \n" + "  \n".join(top_countries_list))
-                        
-                        # Show insights
-                        for insight in insights:
-                            st.markdown(insight)
-                            
-                    except Exception as e:
-                        st.warning(f"Could not generate all insights: {str(e)}")
-                    
-                    st.markdown('</div>', unsafe_allow_html=True)
-                    
-                    # Display raw data after insights
+                    # Display raw data first to ensure something is visible
                     st.dataframe(data, use_container_width=True)
                     
                     # Add field explanations in an expandable section
