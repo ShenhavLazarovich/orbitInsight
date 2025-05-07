@@ -110,7 +110,7 @@ def plot_3d_trajectory(df):
     else:
         df_sorted = df
     
-    # Create 3D scatter plot
+    # Create 3D scatter plot with more configuration options
     fig = go.Figure(data=[
         go.Scatter3d(
             x=df_sorted['x'],
@@ -121,13 +121,21 @@ def plot_3d_trajectory(df):
                 size=2,
                 color=list(range(len(df_sorted))),
                 colorscale='Viridis',
-                opacity=0.8
+                opacity=0.8,
+                colorbar=dict(
+                    title="Point Sequence",
+                    thickness=20
+                )
             ),
             line=dict(
                 color='darkblue',
                 width=1
             ),
-            name='Trajectory'
+            name='Trajectory',
+            hoverinfo='text',
+            text=[f"Point {i+1}<br>X: {row['x']:.2f}<br>Y: {row['y']:.2f}<br>Z: {row['z']:.2f}" + 
+                (f"<br>Time: {pd.to_datetime(row['timestamp']).strftime('%Y-%m-%d %H:%M:%S')}" if 'timestamp' in df_sorted.columns else "") 
+                for i, (_, row) in enumerate(df_sorted.iterrows())]
         )
     ])
     
@@ -174,17 +182,69 @@ def plot_3d_trajectory(df):
                 )
             )
     
-    # Update layout
+    # Create the Earth as a reference sphere
+    if not df_sorted.empty:
+        # Calculate the center of the trajectory
+        if 'altitude' in df_sorted.columns:
+            # Mean distance from Earth center to satellite
+            traj_center = [0, 0, 0]  # Earth center reference
+            earth_radius = 6371000  # Earth radius in meters
+        else:
+            # For non-Earth-centered coordinates, use average of data points
+            traj_center = [df_sorted['x'].mean(), df_sorted['y'].mean(), df_sorted['z'].mean()]
+            earth_radius = 6371000  # Earth radius in meters
+
+        # Create a sphere representing Earth (if the data appears to be in space)
+        # Only add Earth if trajectory is far enough from origin (likely space data)
+        avg_distance = np.sqrt((df_sorted['x'] - traj_center[0])**2 + 
+                            (df_sorted['y'] - traj_center[1])**2 + 
+                            (df_sorted['z'] - traj_center[2])**2).mean()
+        
+        if avg_distance > 1000000:  # If average distance is more than 1000 km
+            # Create Earth sphere
+            u, v = np.mgrid[0:2*np.pi:20j, 0:np.pi:10j]
+            x_earth = earth_radius * np.cos(u) * np.sin(v)
+            y_earth = earth_radius * np.sin(u) * np.sin(v)
+            z_earth = earth_radius * np.cos(v)
+            
+            # Add Earth as a semi-transparent surface
+            fig.add_trace(go.Surface(
+                x=x_earth, y=y_earth, z=z_earth,
+                colorscale=[[0, 'rgb(0, 0, 255)'], [1, 'rgb(100, 100, 255)']],
+                opacity=0.3,
+                showscale=False,
+                name='Earth'
+            ))
+
+    # Update layout with more configuration options
     fig.update_layout(
         title='3D Satellite Trajectory',
         scene=dict(
             xaxis_title='X Position (m)',
             yaxis_title='Y Position (m)',
             zaxis_title='Z Position (m)',
-            aspectmode='data'
+            # Ensure equal aspect ratio for better visualization
+            aspectmode='data',
+            camera=dict(
+                eye=dict(x=1.5, y=1.5, z=1.5),  # Default camera position
+                up=dict(x=0, y=0, z=1)  # Set "up" direction
+            ),
+            # Add annotations for orientation reference
+            annotations=[
+                dict(x=0, y=0, z=0, text="Earth Center"),
+                dict(x=7000000, y=0, z=0, text="X"),
+                dict(x=0, y=7000000, z=0, text="Y"),
+                dict(x=0, y=0, z=7000000, text="Z")
+            ]
         ),
         margin=dict(l=0, r=0, b=0, t=30),
-        height=600  # Increase the plot height
+        height=700,  # Increase the plot height
+        legend=dict(
+            yanchor="top",
+            y=0.99,
+            xanchor="left",
+            x=0.01
+        )
     )
     
     return fig
@@ -281,8 +341,20 @@ def plot_altitude_profile(df):
     if 'altitude' not in df.columns:
         # Try to calculate altitude from x, y, z coordinates
         if all(col in df.columns for col in ['x', 'y', 'z']):
-            # Calculate distance from origin (0,0,0)
-            df['altitude'] = np.sqrt(df['x']**2 + df['y']**2 + df['z']**2)
+            # Calculate distance from Earth center (0,0,0) and subtract Earth radius
+            # Earth radius is approximately 6371 km or 6371000 meters
+            earth_radius = 6371000  # in meters
+            
+            # Calculate distance from Earth center
+            distance_from_center = np.sqrt(df['x']**2 + df['y']**2 + df['z']**2)
+            
+            # Subtract Earth radius to get altitude
+            df['altitude'] = distance_from_center - earth_radius
+            
+            # If altitude is negative (shouldn't normally happen), set to a small positive value
+            df.loc[df['altitude'] < 0, 'altitude'] = 0
+            
+            print(f"Calculated altitudes range from {df['altitude'].min():.2f} to {df['altitude'].max():.2f} meters")
         else:
             # Create empty figure with message if altitude data is missing
             fig = go.Figure()
