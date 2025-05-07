@@ -1,15 +1,15 @@
 [theme]
-# Primary accent color for interactive elements
+# Primary accent color for interactive elements - OrbitInsight Blue
 primaryColor = "#4F8BF9"
 
-# Background color for the main content area
-backgroundColor = "#0E1117"
+# Background color for the main content area - Deep Space Background
+backgroundColor = "#0A0F1A"
 
-# Background color for sidebar and most interactive widgets
-secondaryBackgroundColor = "#1A2332"
+# Background color for sidebar and most interactive widgets - Darker Panel
+secondaryBackgroundColor = "#101827"
 
-# Color used for almost all text
-textColor = "#FAFAFA"
+# Color used for almost all text - Bright Clear Text
+textColor = "#E0E7FF"
 
 # Font family for all text in the app, except code blocks
 # Accepted values (serif | sans serif | monospace) 
