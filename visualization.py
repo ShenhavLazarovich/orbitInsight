@@ -483,3 +483,158 @@ def plot_altitude_profile(df):
                 annotation.text = f"Earth Radius ({earth_radius_display:,} {'km' if use_km else 'm'})"
     
     return fig
+
+def plot_launch_timeline(catalog_data):
+    """Create a launch timeline plot."""
+    fig = px.histogram(
+        catalog_data,
+        x='launch_date',
+        title='Satellite Launch Timeline',
+        labels={'launch_date': 'Launch Date', 'count': 'Number of Satellites'}
+    )
+    return fig
+
+def plot_country_distribution(catalog_data):
+    """Create a country distribution plot."""
+    fig = px.pie(
+        catalog_data,
+        names='country',
+        title='Satellite Distribution by Country'
+    )
+    return fig
+
+def plot_status_distribution(catalog_data):
+    """Create a status distribution plot."""
+    fig = px.pie(
+        catalog_data,
+        names='status',
+        title='Satellite Status Distribution'
+    )
+    return fig
+
+def plot_launch_sites_map(launch_sites_data):
+    """Create a world map of launch sites."""
+    fig = px.scatter_geo(
+        launch_sites_data,
+        lat='latitude',
+        lon='longitude',
+        hover_name='name',
+        hover_data=['country', 'status', 'launch_count'],
+        title='Launch Sites World Map'
+    )
+    return fig
+
+def plot_launch_activity(launch_sites_data):
+    """Create a launch activity plot."""
+    fig = px.line(
+        launch_sites_data,
+        x='last_launch',
+        y='launch_count',
+        color='name',
+        title='Launch Activity by Site',
+        labels={'last_launch': 'Date', 'launch_count': 'Number of Launches'}
+    )
+    return fig
+
+def plot_launch_sites_by_country(launch_sites_data):
+    """Create a country distribution plot for launch sites."""
+    fig = px.bar(
+        launch_sites_data.groupby('country')['launch_count'].sum().reset_index(),
+        x='country',
+        y='launch_count',
+        title='Launch Activity by Country',
+        labels={'country': 'Country', 'launch_count': 'Total Launches'}
+    )
+    return fig
+
+def plot_decay_timeline(decay_data):
+    """Create a decay timeline plot."""
+    fig = px.histogram(
+        decay_data,
+        x='decay_date',
+        title='Satellite Decay Timeline',
+        labels={'decay_date': 'Decay Date', 'count': 'Number of Decays'}
+    )
+    return fig
+
+def plot_decay_altitude_distribution(decay_data):
+    """Create an altitude distribution plot for decay events."""
+    fig = px.histogram(
+        decay_data,
+        x='pre_decay_altitude',
+        title='Pre-Decay Altitude Distribution',
+        labels={'pre_decay_altitude': 'Altitude (km)', 'count': 'Number of Decays'}
+    )
+    return fig
+
+def plot_decay_by_country(decay_data):
+    """Create a country distribution plot for decay events."""
+    fig = px.pie(
+        decay_data,
+        names='country',
+        title='Decay Events by Country'
+    )
+    return fig
+
+def plot_conjunction_timeline(conjunction_data):
+    """Create a conjunction timeline plot."""
+    fig = px.histogram(
+        conjunction_data,
+        x='time_of_closest_approach',
+        title='Conjunction Events Timeline',
+        labels={'time_of_closest_approach': 'Time', 'count': 'Number of Events'}
+    )
+    return fig
+
+def plot_conjunction_risk_distribution(conjunction_data):
+    """Create a risk distribution plot for conjunction events."""
+    fig = px.histogram(
+        conjunction_data,
+        x='probability',
+        title='Conjunction Risk Distribution',
+        labels={'probability': 'Collision Probability', 'count': 'Number of Events'}
+    )
+    return fig
+
+def plot_conjunction_distance_analysis(conjunction_data):
+    """Create a miss distance analysis plot."""
+    fig = px.scatter(
+        conjunction_data,
+        x='miss_distance',
+        y='probability',
+        title='Miss Distance vs. Collision Probability',
+        labels={'miss_distance': 'Miss Distance (km)', 'probability': 'Collision Probability'}
+    )
+    return fig
+
+def plot_object_distribution(boxscore_data):
+    """Create an object distribution plot."""
+    fig = px.bar(
+        boxscore_data,
+        x='country',
+        y=['active_satellites', 'debris', 'payloads', 'rocket_bodies'],
+        title='Space Object Distribution by Country',
+        labels={'value': 'Number of Objects', 'variable': 'Object Type'}
+    )
+    return fig
+
+def plot_launch_activity_by_country(boxscore_data):
+    """Create a launch activity plot by country."""
+    fig = px.bar(
+        boxscore_data,
+        x='country',
+        y='launches',
+        title='Launch Activity by Country',
+        labels={'launches': 'Number of Launches'}
+    )
+    return fig
+
+def plot_debris_analysis(boxscore_data):
+    """Create a debris analysis plot."""
+    fig = px.pie(
+        boxscore_data,
+        values='debris',
+        names='country',
+        title='Debris Distribution by Country'
+    )
+    return fig

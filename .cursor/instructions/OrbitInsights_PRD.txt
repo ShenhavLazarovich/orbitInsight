@@ -1,0 +1,41 @@
+Product Requirements Document (PRD) for OrbitInsights
+Overview
+OrbitInsights aims to provide a user-friendly interface for accessing data from CSpOC's space-track.org.
+It makes complex satellite data accessible and understandable for amateur astronomers, academics, and researchers by offering
+clear visualizations, quick analytics, and easy data export.
+Target Users
+- Amateur astronomers
+- Academics
+- Researchers
+Key Features
+1. Data Visualization: Intuitive graphs and charts for satellite data.
+2. Filtering Options: Easy filters for date ranges, specific satellites, and other parameters.
+3. Quick Analytics: Summaries and insights from the data, highlighting key points.
+4. Downloadable Reports: Export data into Excel sheets for easy use.
+5. Satellite Tracking: Tools to identify which satellite will be over a specific location the fastest.
+6. User-Friendly Dashboard: A main interface that highlights key information at a glance.
+7. Detailed Analytics: Search satellites by ID or name, view 3D and 2D trajectories, altitude segments, and anomaly detection.
+8. Table Overviews: Summaries for each table, e.g., number of conjunctions in the last 30 days with risk levels.
+User Interface
+The current main dashboard design is maintained and referenced, with no changes needed.
+Data Handling
+OrbitInsights uses a classic API from space-track.org to fetch and process data.
+The existing API infrastructure will be maintained and expanded upon.
+Security and Privacy
+Popular and trusted security tools, including secure sign-in methods like Google sign-in,
+ensure secure and convenient access.
+Metrics and Analytics
+- User engagement
+- Number of data queries
+- Report download frequency
+- Website clicks
+- User sign-ins by country
+- Visit frequency
+Additional features include a feedback button and open GitHub for feature requests.
+Documentation
+All documentation, including detailed instructions with snapshots, will be managed inside the GitHub repository.
+Scalability
+OrbitInsights is designed with a robust and scalable architecture using proven, classic methods
+to support multiple users and large volumes of data.
+Future Roadmap
+Planned enhancements will be outlined, giving users a sense of upcoming features and improvements.

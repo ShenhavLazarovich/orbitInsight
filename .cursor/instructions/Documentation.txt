@@ -1,0 +1,6 @@
+Documentation
+Hosted in the GitHub repository
+
+Includes setup instructions, API endpoint usage, and visual snapshots
+
+Contributor guidelines and changelogs will be maintained publicly

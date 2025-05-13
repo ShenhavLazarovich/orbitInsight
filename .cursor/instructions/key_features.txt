@@ -1,0 +1,47 @@
+Core Features
+Data Visualization
+
+Interactive 2D and 3D satellite trajectories
+
+Altitude segmentation and orbital class overviews
+
+Conjunction risk analysis (highlighting last 30 days of high- and low-risk events)
+
+Satellite Lookup
+
+Search by NORAD ID or satellite name
+
+Detailed satellite page with orbital parameters, visual plots, and recent events
+
+Dynamic Filtering
+
+By date, altitude, country of origin, and risk level
+
+Applied globally or on specific tables/graphs
+
+Reports and Exports
+
+Downloadable summaries for filtered queries
+
+Optional CSV and PDF export formats
+
+Engagement and Feedback
+
+Feedback button integrated into UI
+
+Public GitHub for feature requests and suggestions
+
+Authentication and Access
+
+Simple sign-in with email (OAuth optional)
+
+Persistent sessions for returning users
+
+Analytics and Tracking
+
+Track sign-ins by country
+
+Frequency of data queries and report downloads
+
+Click tracking on website interface
+

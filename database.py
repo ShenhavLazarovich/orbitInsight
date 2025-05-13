@@ -3,6 +3,7 @@ import pandas as pd
 from sqlalchemy import create_engine, text
 from datetime import datetime, timedelta
 import traceback
+import sqlite3
 
 # Import space_track module with error handling
 try:
@@ -1046,3 +1047,247 @@ def store_trajectory_data(engine, trajectory_df):
         
     except Exception as e:
         print(f"Error storing trajectory data in database: {e}")
+
+def get_db_connection():
+    """Create a database connection."""
+    conn = sqlite3.connect('orbitinsight.db')
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def init_database():
+    """Initialize the database with required tables."""
+    conn = get_db_connection()
+    c = conn.cursor()
+    
+    # Create users table
+    c.execute('''CREATE TABLE IF NOT EXISTS users
+                 (username TEXT PRIMARY KEY,
+                  password_hash TEXT,
+                  email TEXT,
+                  created_at TIMESTAMP)''')
+    
+    # Create feedback table
+    c.execute('''CREATE TABLE IF NOT EXISTS feedback
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  username TEXT,
+                  feedback_type TEXT,
+                  message TEXT,
+                  created_at TIMESTAMP,
+                  status TEXT DEFAULT 'pending')''')
+    
+    # Create satellites table
+    c.execute('''CREATE TABLE IF NOT EXISTS satellites
+                 (norad_id INTEGER PRIMARY KEY,
+                  name TEXT,
+                  country TEXT,
+                  launch_date TIMESTAMP,
+                  status TEXT,
+                  altitude REAL,
+                  inclination REAL)''')
+    
+    # Create launch_sites table
+    c.execute('''CREATE TABLE IF NOT EXISTS launch_sites
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  name TEXT,
+                  country TEXT,
+                  location TEXT,
+                  status TEXT,
+                  launch_count INTEGER,
+                  first_launch TIMESTAMP,
+                  last_launch TIMESTAMP)''')
+    
+    # Create decay_events table
+    c.execute('''CREATE TABLE IF NOT EXISTS decay_events
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  norad_id INTEGER,
+                  name TEXT,
+                  country TEXT,
+                  decay_date TIMESTAMP,
+                  pre_decay_altitude REAL,
+                  prediction_accuracy REAL)''')
+    
+    # Create conjunction_events table
+    c.execute('''CREATE TABLE IF NOT EXISTS conjunction_events
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  satellite1_id INTEGER,
+                  satellite1_name TEXT,
+                  satellite2_id INTEGER,
+                  satellite2_name TEXT,
+                  time_of_closest_approach TIMESTAMP,
+                  miss_distance REAL,
+                  probability REAL)''')
+    
+    conn.commit()
+    conn.close()
+
+def search_satellites(search_term):
+    """Search satellites by name or NORAD ID."""
+    conn = get_db_connection()
+    query = '''SELECT * FROM satellites 
+               WHERE name LIKE ? OR norad_id LIKE ?
+               LIMIT 10'''
+    results = conn.execute(query, (f'%{search_term}%', f'%{search_term}%')).fetchall()
+    conn.close()
+    return [dict(row) for row in results]
+
+def get_satellite_trajectory(norad_id, start_date, end_date, alert_types):
+    """Get satellite trajectory data."""
+    # Placeholder for trajectory data
+    # In a real implementation, this would query a trajectory database
+    return pd.DataFrame({
+        'timestamp': pd.date_range(start_date, end_date, freq='1min'),
+        'x': [0] * 1000,  # Placeholder values
+        'y': [0] * 1000,
+        'z': [0] * 1000,
+        'altitude': [400] * 1000
+    })
+
+def get_catalog_data(search_term=None, countries=None, status=None, launch_year_range=None):
+    """Get satellite catalog data with filters."""
+    conn = get_db_connection()
+    query = 'SELECT * FROM satellites WHERE 1=1'
+    params = []
+    
+    if search_term:
+        query += ' AND (name LIKE ? OR norad_id LIKE ?)'
+        params.extend([f'%{search_term}%', f'%{search_term}%'])
+    
+    if countries:
+        placeholders = ','.join(['?'] * len(countries))
+        query += f' AND country IN ({placeholders})'
+        params.extend(countries)
+    
+    if status:
+        placeholders = ','.join(['?'] * len(status))
+        query += f' AND status IN ({placeholders})'
+        params.extend(status)
+    
+    if launch_year_range:
+        query += ' AND strftime("%Y", launch_date) BETWEEN ? AND ?'
+        params.extend([str(launch_year_range[0]), str(launch_year_range[1])])
+    
+    results = pd.read_sql_query(query, conn, params=params)
+    conn.close()
+    return results
+
+def get_launch_sites_data(search_term=None, countries=None, status=None, min_launches=0):
+    """Get launch sites data with filters."""
+    conn = get_db_connection()
+    query = 'SELECT * FROM launch_sites WHERE 1=1'
+    params = []
+    
+    if search_term:
+        query += ' AND (name LIKE ? OR location LIKE ?)'
+        params.extend([f'%{search_term}%', f'%{search_term}%'])
+    
+    if countries:
+        placeholders = ','.join(['?'] * len(countries))
+        query += f' AND country IN ({placeholders})'
+        params.extend(countries)
+    
+    if status:
+        placeholders = ','.join(['?'] * len(status))
+        query += f' AND status IN ({placeholders})'
+        params.extend(status)
+    
+    if min_launches > 0:
+        query += ' AND launch_count >= ?'
+        params.append(min_launches)
+    
+    results = pd.read_sql_query(query, conn, params=params)
+    conn.close()
+    return results
+
+def get_decay_data(search_term=None, countries=None, date_range=None, min_altitude=0):
+    """Get decay events data with filters."""
+    conn = get_db_connection()
+    query = 'SELECT * FROM decay_events WHERE 1=1'
+    params = []
+    
+    if search_term:
+        query += ' AND (name LIKE ? OR norad_id LIKE ?)'
+        params.extend([f'%{search_term}%', f'%{search_term}%'])
+    
+    if countries:
+        placeholders = ','.join(['?'] * len(countries))
+        query += f' AND country IN ({placeholders})'
+        params.extend(countries)
+    
+    if date_range:
+        query += ' AND decay_date BETWEEN ? AND ?'
+        params.extend([date_range[0], date_range[1]])
+    
+    if min_altitude > 0:
+        query += ' AND pre_decay_altitude >= ?'
+        params.append(min_altitude)
+    
+    results = pd.read_sql_query(query, conn, params=params)
+    conn.close()
+    return results
+
+def get_conjunction_data(search_term=None, min_probability=0, date_range=None, min_distance=0):
+    """Get conjunction events data with filters."""
+    conn = get_db_connection()
+    query = 'SELECT * FROM conjunction_events WHERE 1=1'
+    params = []
+    
+    if search_term:
+        query += ''' AND (satellite1_name LIKE ? 
+                         OR satellite2_name LIKE ? 
+                         OR satellite1_id LIKE ? 
+                         OR satellite2_id LIKE ?)'''
+        params.extend([f'%{search_term}%'] * 4)
+    
+    if min_probability > 0:
+        query += ' AND probability >= ?'
+        params.append(min_probability)
+    
+    if date_range:
+        query += ' AND time_of_closest_approach BETWEEN ? AND ?'
+        params.extend([date_range[0], date_range[1]])
+    
+    if min_distance > 0:
+        query += ' AND miss_distance >= ?'
+        params.append(min_distance)
+    
+    results = pd.read_sql_query(query, conn, params=params)
+    conn.close()
+    return results
+
+def get_boxscore_data(countries=None, time_period=None):
+    """Get boxscore statistics data."""
+    conn = get_db_connection()
+    
+    # Calculate date range based on time period
+    end_date = datetime.now()
+    if time_period == "Last 30 Days":
+        start_date = end_date - timedelta(days=30)
+    elif time_period == "Last 90 Days":
+        start_date = end_date - timedelta(days=90)
+    elif time_period == "Last Year":
+        start_date = end_date - timedelta(days=365)
+    else:  # All Time
+        start_date = datetime(1957, 1, 1)  # Start of space age
+    
+    query = '''SELECT 
+                  country,
+                  COUNT(*) as total_objects,
+                  SUM(CASE WHEN status = 'Active' THEN 1 ELSE 0 END) as active_satellites,
+                  SUM(CASE WHEN status = 'Debris' THEN 1 ELSE 0 END) as debris,
+                  SUM(CASE WHEN type = 'Payload' THEN 1 ELSE 0 END) as payloads,
+                  SUM(CASE WHEN type = 'Rocket Body' THEN 1 ELSE 0 END) as rocket_bodies,
+                  COUNT(DISTINCT launch_date) as launches
+               FROM satellites
+               WHERE launch_date BETWEEN ? AND ?'''
+    params = [start_date, end_date]
+    
+    if countries:
+        placeholders = ','.join(['?'] * len(countries))
+        query += f' AND country IN ({placeholders})'
+        params.extend(countries)
+    
+    query += ' GROUP BY country'
+    
+    results = pd.read_sql_query(query, conn, params=params)
+    conn.close()
+    return results
