@@ -1,0 +1,54 @@
+# Core dependencies
+streamlit>=1.22.0
+numpy>=1.24.3
+pandas>=1.5.3
+scipy>=1.10.1
+
+# API and Data Handling
+requests>=2.31.0
+sgp4>=2.22  # For satellite position calculations
+space-track-api>=1.0.0  # For Space-Track.org API access
+pyorbital>=1.7.0  # For orbital calculations
+
+# Data Visualization
+plotly>=5.14.1  # Interactive plots
+plotly-geo>=1.0.0  # For geographic visualizations
+matplotlib>=3.8.0  # For static plots and custom visualizations
+seaborn>=0.13.0  # For statistical visualizations
+ipyleaflet>=0.17.0  # For interactive maps
+cartopy>=0.22.0  # For map projections and geographical plots
+skyfield>=1.45  # For astronomical calculations and visualizations
+
+# 3D Visualization
+pyvista>=0.43.0  # For 3D scientific visualization
+vtk>=9.3.0  # For 3D rendering
+
+# Data Processing and Analysis
+astropy>=6.0.0  # For astronomical calculations
+ephem>=4.1.5  # For astronomical computations
+pyephem>=4.1.5  # Alternative to ephem
+scikit-learn>=1.4.0  # For data analysis and anomaly detection
+
+# Database
+sqlalchemy>=2.0.40  # Database ORM
+psycopg2-binary>=2.9.10  # PostgreSQL adapter
+
+# Utilities
+python-dateutil>=2.8.2  # For date handling
+pytz>=2024.1  # For timezone support
+tqdm>=4.66.0  # For progress bars
+
+# Optional but recommended for enhanced features
+cesium>=1.111  # For web-based 3D globe visualization
+ipywidgets>=8.1.0  # For interactive widgets in Jupyter
+XlsxWriter>=3.1.0  # For Excel export functionality
+
+# Additional dependencies
+colorsys>=0.1.1
+sqlite3>=3.35.0
+threading>=3.10.0
+queue>=0.1.0
+json>=2.0.9
+datetime>=4.9
+typing>=3.7.4
+os-sys>=2.1.4 

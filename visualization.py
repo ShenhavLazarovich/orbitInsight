@@ -484,6 +484,7 @@ def plot_altitude_profile(df):
     
     return fig
 
+<<<<<<< Updated upstream
 def plot_launch_timeline(catalog_data):
     """Create a launch timeline plot."""
     fig = px.histogram(
@@ -637,4 +638,101 @@ def plot_debris_analysis(boxscore_data):
         names='country',
         title='Debris Distribution by Country'
     )
+=======
+def plot_ground_track(df):
+    """
+    Plot satellite ground track on a world map.
+    
+    Args:
+        df: Pandas DataFrame with trajectory data containing latitude and longitude
+        
+    Returns:
+        Plotly figure object
+    """
+    # Convert cartesian coordinates to lat/lon if needed
+    if 'latitude' not in df.columns or 'longitude' not in df.columns:
+        if all(col in df.columns for col in ['x', 'y', 'z']):
+            # Convert XYZ to lat/lon
+            r = np.sqrt(df['x']**2 + df['y']**2 + df['z']**2)
+            df['latitude'] = np.arcsin(df['z'] / r) * 180 / np.pi
+            df['longitude'] = np.arctan2(df['y'], df['x']) * 180 / np.pi
+        else:
+            # Create empty figure with message if data is missing
+            fig = go.Figure()
+            fig.update_layout(
+                title="Cannot create ground track plot: Missing coordinate data",
+                mapbox=dict(style="open-street-map"),
+            )
+            return fig
+    
+    # Sort by timestamp if available
+    if 'timestamp' in df.columns:
+        df_sorted = df.sort_values('timestamp')
+    else:
+        df_sorted = df
+    
+    # Create the ground track plot
+    fig = go.Figure()
+    
+    # Add the ground track line
+    fig.add_trace(
+        go.Scattermapbox(
+            lat=df_sorted['latitude'],
+            lon=df_sorted['longitude'],
+            mode='lines+markers',
+            marker=dict(
+                size=4,
+                color=list(range(len(df_sorted))),
+                colorscale='Viridis',
+                opacity=0.8,
+                colorbar=dict(
+                    title="Time Sequence",
+                    thickness=20
+                )
+            ),
+            line=dict(
+                color='darkblue',
+                width=2
+            ),
+            name='Ground Track'
+        )
+    )
+    
+    # Add start and end points
+    fig.add_trace(
+        go.Scattermapbox(
+            lat=[df_sorted['latitude'].iloc[0]],
+            lon=[df_sorted['longitude'].iloc[0]],
+            mode='markers',
+            marker=dict(size=10, color='green'),
+            name='Start'
+        )
+    )
+    
+    fig.add_trace(
+        go.Scattermapbox(
+            lat=[df_sorted['latitude'].iloc[-1]],
+            lon=[df_sorted['longitude'].iloc[-1]],
+            mode='markers',
+            marker=dict(size=10, color='red'),
+            name='End'
+        )
+    )
+    
+    # Update layout with map configuration
+    fig.update_layout(
+        mapbox=dict(
+            style="open-street-map",
+            center=dict(
+                lat=df_sorted['latitude'].mean(),
+                lon=df_sorted['longitude'].mean()
+            ),
+            zoom=1
+        ),
+        showlegend=True,
+        height=600,
+        margin=dict(l=0, r=0, t=30, b=0)
+    )
+    
+>>>>>>> Stashed changes
     return fig
