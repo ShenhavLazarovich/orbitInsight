@@ -11,7 +11,7 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 class SpaceTrackClient:
     """
     Client for accessing Space-Track.org API to fetch satellite (CSpOC) data.
-    Requires Space-Track.org credentials to be set as environment variables:
+    Credentials can be provided via constructor or environment variables:
     - SPACETRACK_USERNAME
     - SPACETRACK_PASSWORD
     """
@@ -19,7 +19,7 @@ class SpaceTrackClient:
     AUTH_URL = f"{BASE_URL}/ajaxauth/login"
     
     def __init__(self, username=None, password=None):
-        # Allow direct credential passing or fall back to environment variables
+        # Use provided credentials, or fall back to environment variables
         self.username = username or os.getenv("SPACETRACK_USERNAME")
         self.password = password or os.getenv("SPACETRACK_PASSWORD")
         self.session = requests.Session()
@@ -28,13 +28,11 @@ class SpaceTrackClient:
     def authenticate(self):
         """Authenticate with Space-Track.org"""
         if not self.username or not self.password:
-            raise ValueError("Space-Track.org credentials not found in environment variables")
-        
+            raise ValueError("Space-Track.org credentials not found. Please provide them via the login form.")
         credentials = {
             'identity': self.username,
             'password': self.password
         }
-        
         try:
             response = self.session.post(self.AUTH_URL, data=credentials)
             response.raise_for_status()
@@ -109,10 +107,10 @@ class SpaceTrackClient:
         """
         if not self.authenticated and not self.authenticate():
             raise ConnectionError("Failed to authenticate with Space-Track.org")
-            
-        # Order by launch date descending (newest first)
-        query_url = f"{self.BASE_URL}/basicspacedata/query/class/satcat/format/json/orderby/LAUNCH_DATE%20desc/limit/{limit}"
-            
+        
+        # Remove problematic orderby/LAUNCH_DATE clause
+        query_url = f"{self.BASE_URL}/basicspacedata/query/class/satcat/format/json/limit/{limit}"
+        
         try:
             response = self.session.get(query_url)
             response.raise_for_status()

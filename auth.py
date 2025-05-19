@@ -4,6 +4,56 @@ import hashlib
 import re
 from datetime import datetime
 import streamlit_authenticator as stauth
+import os
+from dotenv import load_dotenv
+from space_track import SpaceTrackClient
+import base64
+from cryptography.fernet import Fernet
+import json
+
+# Load environment variables
+load_dotenv()
+
+# Generate a key for encryption (store this securely in production)
+ENCRYPTION_KEY = os.getenv('ENCRYPTION_KEY', Fernet.generate_key())
+cipher_suite = Fernet(ENCRYPTION_KEY)
+
+def encrypt_credentials(username, password):
+    """Encrypt credentials for secure storage."""
+    credentials = {
+        'username': username,
+        'password': password,
+        'timestamp': datetime.now().isoformat()
+    }
+    encrypted_data = cipher_suite.encrypt(json.dumps(credentials).encode())
+    return base64.b64encode(encrypted_data).decode()
+
+def decrypt_credentials(encrypted_data):
+    """Decrypt stored credentials."""
+    try:
+        decrypted_data = cipher_suite.decrypt(base64.b64decode(encrypted_data))
+        return json.loads(decrypted_data)
+    except Exception as e:
+        print(f"Error decrypting credentials: {e}")
+        return None
+
+def store_credentials(username, password):
+    """Store encrypted credentials in session state."""
+    encrypted = encrypt_credentials(username, password)
+    st.session_state['stored_credentials'] = encrypted
+
+def clear_stored_credentials():
+    """Clear stored credentials from session state."""
+    if 'stored_credentials' in st.session_state:
+        del st.session_state['stored_credentials']
+
+def load_stored_credentials():
+    """Load and decrypt stored credentials if they exist."""
+    if 'stored_credentials' in st.session_state:
+        credentials = decrypt_credentials(st.session_state['stored_credentials'])
+        if credentials:
+            return credentials.get('username'), credentials.get('password')
+    return None, None
 
 # --- Local Auth Functions ---
 def init_db():
@@ -48,76 +98,49 @@ def verify_user(username, password):
 # --- Main Login Page ---
 def login_page():
     st.title("Welcome to OrbitInsight")
-
-    # --- Google OAuth ---
-    authenticator = stauth.Authenticate(
-        credentials={"usernames": {}},  # Fix: add empty usernames key
-        cookie_name="orbitinsight",
-        key="auth",
-        cookie_expiry_days=1,
-        oauth={
-            "provider": "google",
-            "client_id": "YOUR_GOOGLE_CLIENT_ID",
-            "client_secret": "YOUR_GOOGLE_CLIENT_SECRET",
-            "redirect_uri": "http://localhost:8501"
-        }
-    )
-    name, authentication_status, username = authenticator.login("Login with Google", "main")
-    if authentication_status:
-        st.session_state['authenticated'] = True
-        st.session_state['username'] = username
-        st.success(f"Logged in as {username} (Google)")
-        st.rerun()
-    elif authentication_status is False:
-        st.error("Google login failed")
-
-    st.markdown("---")
-    tab1, tab2 = st.tabs(["Login", "Sign Up"])
-    with tab1:
-        st.subheader("Login")
-        username = st.text_input("Username", key="login_username")
-        password = st.text_input("Password", type="password", key="login_password")
-        if st.button("Login"):
-            if verify_user(username, password):
-                st.session_state['authenticated'] = True
-                st.session_state['username'] = username
-                st.success("Login successful!")
-                st.rerun()
-            else:
-                st.error("Invalid username or password")
-    with tab2:
-        st.subheader("Create Account")
-        new_username = st.text_input("Username", key="signup_username")
-        new_password = st.text_input("Password", type="password", key="signup_password")
-        confirm_password = st.text_input("Confirm Password", type="password", key="confirm_password")
-        email = st.text_input("Email", key="signup_email")
-        if st.button("Sign Up"):
-            if new_password != confirm_password:
-                st.error("Passwords do not match")
-            elif not re.match(r"[^@]+@[^@]+\.[^@]+", email):
-                st.error("Invalid email address")
-            elif register_user(new_username, new_password, email):
-                st.success("Account created successfully! Please login.")
-            else:
-                st.error("Username already exists")
-
-    with st.expander("Forgot Password?"):
-        reset_username = st.text_input("Username", key="reset_username")
-        new_password = st.text_input("New Password", type="password", key="reset_new_password")
-        if st.button("Reset Password"):
-            if reset_username and new_password:
-                conn = sqlite3.connect('users.db')
-                c = conn.cursor()
-                password_hash = hash_password(new_password)
-                c.execute('UPDATE users SET password_hash=? WHERE username=?', (password_hash, reset_username))
-                if c.rowcount > 0:
-                    st.success("Password reset successful! Please login.")
+    st.subheader("Space-Track.org Login (required for data access)")
+    
+    # Check for stored credentials
+    stored_username, stored_password = load_stored_credentials()
+    
+    # Login form
+    username = st.text_input("Space-Track Username", value=stored_username or "")
+    password = st.text_input("Space-Track Password", type="password", value=stored_password or "")
+    remember_me = st.checkbox("Remember Me", value=bool(stored_username))
+    
+    if st.button("Set Space-Track Credentials"):
+        if username and password:
+            try:
+                client = SpaceTrackClient(username=username, password=password)
+                if client.authenticate():
+                    st.session_state['spacetrack_authenticated'] = True
+                    st.session_state['spacetrack_username'] = username
+                    st.session_state['spacetrack_password'] = password
+                    # Store credentials if remember me is checked
+                    if remember_me:
+                        store_credentials(username, password)
+                    else:
+                        clear_stored_credentials()
+                    st.success("Space-Track credentials set for this session.")
+                    st.rerun()
                 else:
-                    st.error("Username not found.")
-                conn.commit()
-                conn.close()
-            else:
-                st.error("Please enter both username and new password.")
+                    # Clear session state and stored credentials on failed login
+                    st.session_state['spacetrack_authenticated'] = False
+                    st.session_state['spacetrack_username'] = ''
+                    st.session_state['spacetrack_password'] = ''
+                    clear_stored_credentials()
+                    st.error("Failed to authenticate with Space-Track.org. Please check your credentials.")
+                    st.rerun()
+            except Exception as e:
+                # Clear session state and stored credentials on error
+                st.session_state['spacetrack_authenticated'] = False
+                st.session_state['spacetrack_username'] = ''
+                st.session_state['spacetrack_password'] = ''
+                clear_stored_credentials()
+                st.error(f"Authentication error: {e}")
+                st.rerun()
+        else:
+            st.error("Please enter both username and password.")
 
 def check_auth():
     if 'authenticated' not in st.session_state:
