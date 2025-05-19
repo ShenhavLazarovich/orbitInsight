@@ -196,6 +196,7 @@ def detect_anomalies(df, parameter, threshold=3.0):
     
     return anomaly_df, fig
 
+<<<<<<< Updated upstream
 def analyze_trajectory(trajectory_data):
     """Analyze satellite trajectory data."""
     # Calculate basic orbital parameters
@@ -278,3 +279,76 @@ def analyze_boxscore(boxscore_data):
         'avg_objects_per_country': boxscore_data['total_objects'].mean()
     }
     return analysis
+=======
+def calculate_orbit_statistics(df):
+    """
+    Calculate orbital statistics from trajectory data.
+    
+    Args:
+        df: Pandas DataFrame with trajectory data
+        
+    Returns:
+        Dictionary with orbital statistics
+    """
+    stats = {}
+    
+    try:
+        # Calculate altitude if not present
+        if 'altitude' not in df.columns and all(col in df.columns for col in ['x', 'y', 'z']):
+            earth_radius = 6371000  # meters
+            df['altitude'] = np.sqrt(df['x']**2 + df['y']**2 + df['z']**2) - earth_radius
+        
+        # Average altitude in kilometers
+        if 'altitude' in df.columns:
+            stats['avg_altitude'] = df['altitude'].mean() / 1000
+        else:
+            stats['avg_altitude'] = 0
+        
+        # Calculate orbital period
+        if 'timestamp' in df.columns:
+            # Sort by timestamp
+            df_sorted = df.sort_values('timestamp')
+            
+            # Try to find a complete orbit by looking for when the satellite returns close to its starting position
+            start_pos = np.array([df_sorted['x'].iloc[0], df_sorted['y'].iloc[0], df_sorted['z'].iloc[0]])
+            distances = []
+            
+            for _, row in df_sorted.iterrows():
+                pos = np.array([row['x'], row['y'], row['z']])
+                dist = np.linalg.norm(pos - start_pos)
+                distances.append(dist)
+            
+            # Find where the satellite comes close to its starting position
+            threshold = np.mean(distances) * 0.1  # 10% of mean distance as threshold
+            close_points = np.where(np.array(distances) < threshold)[0]
+            
+            if len(close_points) > 1:
+                # Calculate time between first and second close approach
+                first_orbit = close_points[1]
+                period = (df_sorted['timestamp'].iloc[first_orbit] - df_sorted['timestamp'].iloc[0]).total_seconds() / 60
+                stats['orbit_period'] = period
+            else:
+                # Estimate period using Kepler's Third Law
+                avg_radius = np.mean(np.sqrt(df['x']**2 + df['y']**2 + df['z']**2))
+                period = 2 * np.pi * np.sqrt(avg_radius**3 / (6.67430e-11 * 5.972e24))  # in seconds
+                stats['orbit_period'] = period / 60  # Convert to minutes
+        else:
+            stats['orbit_period'] = 0
+        
+        # Calculate maximum velocity in km/s
+        if all(col in df.columns for col in ['vx', 'vy', 'vz']):
+            velocities = np.sqrt(df['vx']**2 + df['vy']**2 + df['vz']**2)
+            stats['max_velocity'] = np.max(velocities) / 1000  # Convert to km/s
+        else:
+            stats['max_velocity'] = 0
+        
+        return stats
+        
+    except Exception as e:
+        print(f"Error calculating orbit statistics: {e}")
+        return {
+            'avg_altitude': 0,
+            'orbit_period': 0,
+            'max_velocity': 0
+        }
+>>>>>>> Stashed changes

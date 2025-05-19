@@ -4,6 +4,7 @@ import requests
 import pandas as pd
 from datetime import datetime, timedelta
 import warnings
+import math
 
 # Suppress SGP4 deprecation warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)
@@ -24,6 +25,7 @@ class SpaceTrackClient:
         self.password = password or os.getenv("SPACETRACK_PASSWORD")
         self.session = requests.Session()
         self.authenticated = False
+        self.last_auth_time = None
     
     def authenticate(self):
         """Authenticate with Space-Track.org"""
@@ -37,64 +39,171 @@ class SpaceTrackClient:
             response = self.session.post(self.AUTH_URL, data=credentials)
             response.raise_for_status()
             self.authenticated = True
+            self.last_auth_time = datetime.now()
             return True
         except requests.exceptions.RequestException as e:
             print(f"Authentication failed: {e}")
+            self.authenticated = False
             return False
+    
+    def _ensure_authenticated(self):
+        """Ensure the client is authenticated before making requests"""
+        # If not authenticated or session is older than 5 minutes, re-authenticate
+        if not self.authenticated or (
+            self.last_auth_time and 
+            (datetime.now() - self.last_auth_time).total_seconds() > 300
+        ):
+            if not self.authenticate():
+                raise Exception("Failed to authenticate with Space-Track.org")
+    
+    def _query(self, query_path):
+        """
+        Execute a query against the Space-Track API
+        
+        Args:
+            query_path: The query path after the base URL
+            
+        Returns:
+            JSON response data or None on error
+        """
+        self._ensure_authenticated()
+        
+        try:
+            query_url = f"{self.BASE_URL}/basicspacedata{query_path}"
+            response = self.session.get(query_url)
+            
+            # Check for authentication errors
+            if response.status_code == 401:
+                # Try to re-authenticate once
+                self.authenticated = False
+                self._ensure_authenticated()
+                # Retry the request
+                response = self.session.get(query_url)
+            
+            response.raise_for_status()
+            return response.json()
+            
+        except requests.exceptions.RequestException as e:
+            print(f"Error executing query: {e}")
+            if "401" in str(e) or "Unauthorized" in str(e):
+                self.authenticated = False
+            return None
     
     def get_latest_tle(self, norad_cat_id=None, satellite_name=None, limit=10):
         """
-        Get latest Two-Line Element sets for satellites
+        Get the latest TLE data for a satellite
         
         Args:
-            norad_cat_id: NORAD Catalog ID (Number)
-            satellite_name: Name of satellite (can include wildcards)
+            norad_cat_id: NORAD Catalog ID of the satellite
+            satellite_name: Name of the satellite
             limit: Maximum number of results to return
             
         Returns:
             Pandas DataFrame with TLE data
         """
-        if not self.authenticated and not self.authenticate():
-            print("Authentication failed, retrying...")
-            if not self.authenticate():
-                print("Authentication with Space-Track.org failed")
-                raise ConnectionError("Failed to authenticate with Space-Track.org")
-            
-        # Build query
-        query_params = []
-        if norad_cat_id:
-            query_params.append(f"NORAD_CAT_ID/{norad_cat_id}")
-        elif satellite_name:
-            # Try to match more satellites with wildcards
-            # The ~~ operator is equivalent to SQL's LIKE
-            if "%" in satellite_name:
-                # Convert from SQL-style % wildcard to Space-Track's * wildcard
-                search_term = satellite_name.replace("%", "*")
-                query_params.append(f"OBJECT_NAME/~~{search_term}")
-            else:
-                # For direct search terms, use contains to find partial matches
-                query_params.append(f"OBJECT_NAME/~~*{satellite_name}*")
-                
-        # Default to most recent data if no parameters provided
-        if not query_params:
-            query_params.append("ORDINAL/1")
-            
-        query_url = f"{self.BASE_URL}/basicspacedata/query/class/tle_latest/format/json"
-        if query_params:
-            query_url += f"/{''.join(query_params)}/limit/{limit}"
-            
         try:
+            self._ensure_authenticated()
+            
+            # Special handling for ISS
+            if satellite_name and "ISS" in satellite_name.upper():
+                try:
+                    return self.get_latest_tle(norad_cat_id=25544)  # ISS NORAD ID
+                except:
+                    satellite_name = "ISS (ZARYA)"
+            
+            # Build query parameters
+            query_parts = [
+                'class/tle_latest',
+                'format/json',
+                'orderby/EPOCH desc',
+                f'limit/{limit}'
+            ]
+            
+            # Add search criteria
+            if norad_cat_id:
+                query_parts.append(f'NORAD_CAT_ID/{norad_cat_id}')
+            elif satellite_name:
+                clean_name = satellite_name.upper().strip()
+                if "ISS (ZARYA)" in clean_name:
+                    query_parts.append('OBJECT_NAME/ISS (ZARYA)')
+                else:
+                    query_parts.append(f'OBJECT_NAME/like/{clean_name}%')
+            
+            query = '/'.join(query_parts)
+            query_url = f"{self.BASE_URL}/basicspacedata/query/{query}"
+            
+            print(f"Querying Space-Track API: {query_url}")
             response = self.session.get(query_url)
+            
+            if response.status_code == 401:
+                self.authenticated = False
+                self._ensure_authenticated()
+                response = self.session.get(query_url)
+            elif response.status_code == 500:
+                print("Server error with primary endpoint, trying alternative...")
+                alt_query_parts = [
+                    'class/gp',
+                    'format/json',
+                    'orderby/EPOCH desc',
+                    f'limit/{limit}'
+                ]
+                
+                if norad_cat_id:
+                    alt_query_parts.append(f'NORAD_CAT_ID/{norad_cat_id}')
+                elif satellite_name:
+                    if "ISS (ZARYA)" in clean_name:
+                        alt_query_parts.append('OBJECT_NAME/ISS (ZARYA)')
+                    else:
+                        alt_query_parts.append(f'OBJECT_NAME/like/{clean_name}%')
+                
+                alt_query = '/'.join(alt_query_parts)
+                alt_url = f"{self.BASE_URL}/basicspacedata/query/{alt_query}"
+                print(f"Trying alternative URL: {alt_url}")
+                response = self.session.get(alt_url)
+            
             response.raise_for_status()
             data = response.json()
             
-            # Convert to DataFrame
-            df = pd.DataFrame(data)
+            if isinstance(data, list):
+                df = pd.DataFrame(data)
+            elif isinstance(data, dict):
+                df = pd.DataFrame([data])
+            else:
+                return pd.DataFrame()
+            
+            print("Available columns in TLE data:", df.columns.tolist())
+            
+            if 'TLE_LINE1' not in df.columns or 'TLE_LINE2' not in df.columns:
+                if 'line1' in df.columns and 'line2' in df.columns:
+                    df = df.rename(columns={'line1': 'TLE_LINE1', 'line2': 'TLE_LINE2'})
+                elif 'LINE1' in df.columns and 'LINE2' in df.columns:
+                    df = df.rename(columns={'LINE1': 'TLE_LINE1', 'LINE2': 'TLE_LINE2'})
+                else:
+                    required_fields = [
+                        'OBJECT_NAME', 'NORAD_CAT_ID', 'CLASSIFICATION_TYPE',
+                        'EPOCH', 'MEAN_MOTION', 'ECCENTRICITY', 'INCLINATION',
+                        'RA_OF_ASC_NODE', 'ARG_OF_PERICENTER', 'MEAN_ANOMALY',
+                        'EPHEMERIS_TYPE', 'ELEMENT_SET_NO'
+                    ]
+                    
+                    if all(field in df.columns for field in required_fields):
+                        print("Constructing TLE lines from orbital elements")
+                        raise ValueError("TLE line construction from elements not yet implemented")
+                    else:
+                        print("Missing required fields for TLE construction")
+                        print("Available fields:", df.columns.tolist())
+                        raise ValueError("Could not find or construct TLE lines from available data")
+            
             return df
-        except requests.exceptions.RequestException as e:
-            print(f"Error fetching TLE data: {e}")
-            return pd.DataFrame()
         
+        except requests.exceptions.RequestException as e:
+            if "401" in str(e) or "Unauthorized" in str(e):
+                self.authenticated = False
+                raise Exception("Session expired. Please authenticate again.")
+            elif "500" in str(e):
+                raise Exception("Space-Track.org server error. Please try again later or try searching by NORAD ID (25544 for ISS).")
+            raise Exception(f"Error fetching TLE data: {str(e)}")
+    
     def get_satellite_catalog(self, limit=200):
         """
         Get the satellite catalog information
@@ -163,7 +272,7 @@ class SpaceTrackClient:
         """
         if not self.authenticated and not self.authenticate():
             raise ConnectionError("Failed to authenticate with Space-Track.org")
-            
+        
         # Calculate date range
         end_date = datetime.now().strftime("%Y-%m-%d")
         start_date = (datetime.now() - timedelta(days=days_back)).strftime("%Y-%m-%d")
@@ -189,252 +298,126 @@ class SpaceTrackClient:
                     # Print the full response for debugging
                     print(f"Response status: {response.status_code}")
                     if response.status_code != 200:
-                        print(f"Response text: {response.text[:200]}...")  # Print first 200 chars of response text
+                        print(f"Response text: {response.text[:200]}...")
+                        continue
                     
-                    # Check for success
                     response.raise_for_status()
                     data = response.json()
                     
-                    # Convert to DataFrame and verify we have actual data
-                    if isinstance(data, list) and len(data) > 0:
+                    if data:
                         df = pd.DataFrame(data)
-                        print(f"Successfully retrieved {len(df)} records from {decay_class} with {date_column}")
-                        
-                        # Verify we have some expected columns
-                        if len(df.columns) > 3:  # Basic check that we got a reasonable data structure
+                        if not df.empty:
                             return df
-                        else:
-                            print(f"Data from {decay_class} with {date_column} appears incomplete. Columns: {df.columns.tolist()}")
-                    elif isinstance(data, dict):
-                        print(f"Received dictionary response from {decay_class} with {date_column}: {list(data.keys())}")
-                    else:
-                        print(f"Endpoint {decay_class} with {date_column} returned empty list")
-                        
-                except requests.exceptions.RequestException as e:
-                    print(f"Error fetching decay data from {decay_class} with {date_column}: {e}")
-                    # Continue to the next combination
+                except Exception as e:
+                    print(f"Error with endpoint {decay_class}/{date_column}: {str(e)}")
+                    continue
         
-        # Try alternative via satellite catalog with decay parameter
+        print(f"No successful endpoints found. Attempted: {', '.join(attempted_endpoints)}")
+        return pd.DataFrame()
+
+    def get_conjunction_data(self, satellite_id, days_before=7, days_after=7):
+        """
+        Get conjunction data for a satellite
+        
+        Args:
+            satellite_id: NORAD Catalog ID of the satellite
+            days_before: Number of days before current date to check
+            days_after: Number of days after current date to check
+            
+        Returns:
+            Dictionary containing conjunction analysis results
+        """
         try:
-            print("Trying direct satcat access with decay parameter...")
-            query_url = f"{self.BASE_URL}/basicspacedata/query/class/satcat/format/json/decay_date/notnull/orderby/decay_date%20desc/limit/{limit}"
-            attempted_endpoints.append("satcat with decay_date/notnull")
-            print(f"Requesting URL: {query_url}")
+            if not self.authenticated and not self.authenticate():
+                return {'status': 'error', 'error': 'Authentication failed'}
+            
+            # Calculate date range
+            end_date = datetime.now() + timedelta(days=days_after)
+            start_date = datetime.now() - timedelta(days=days_before)
+            
+            # Query conjunction data
+            query_url = (
+                f"{self.BASE_URL}/basicspacedata/query/class/cdm/format/json"
+                f"/CREATION_DATE/>{start_date.strftime('%Y-%m-%d')}"
+                f"/CREATION_DATE/<{end_date.strftime('%Y-%m-%d')}"
+                f"/orderby/TCA%20asc"
+            )
             
             response = self.session.get(query_url)
-            print(f"Response status: {response.status_code}")
-            
             response.raise_for_status()
             data = response.json()
             
-            # Convert to DataFrame
-            if isinstance(data, list) and len(data) > 0:
-                df = pd.DataFrame(data)
-                print(f"Successfully retrieved {len(df)} records from satcat with decay_date/notnull")
-                return df
-            else:
-                print("Satcat with decay_date/notnull returned empty list")
-                
+            if not data:
+                return {
+                    'status': 'success',
+                    'risk_level': 'low',
+                    'min_distance': None,
+                    'past_approaches': 0,
+                    'future_approaches': 0,
+                    'tracked_objects': 0
+                }
+            
+            # Process conjunction data
+            df = pd.DataFrame(data)
+            df['TCA'] = pd.to_datetime(df['TCA'])
+            
+            # Filter for the specified satellite
+            df = df[
+                (df['OBJECT1_NORAD_CAT_ID'] == str(satellite_id)) |
+                (df['OBJECT2_NORAD_CAT_ID'] == str(satellite_id))
+            ]
+            
+            if df.empty:
+                return {
+                    'status': 'success',
+                    'risk_level': 'low',
+                    'min_distance': None,
+                    'past_approaches': 0,
+                    'future_approaches': 0,
+                    'tracked_objects': 0
+                }
+            
+            # Calculate statistics
+            now = pd.Timestamp.now()
+            past_approaches = len(df[df['TCA'] < now])
+            future_approaches = len(df[df['TCA'] >= now])
+            
+            # Calculate minimum distance
+            min_distance = df['MIN_RANGE'].astype(float).min()
+            
+            # Determine risk level based on minimum distance
+            risk_level = 'low'
+            if min_distance < 1.0:  # Less than 1 km
+                risk_level = 'high'
+            elif min_distance < 5.0:  # Less than 5 km
+                risk_level = 'medium'
+            
+            # Count unique tracked objects
+            tracked_objects = len(
+                set(df['OBJECT1_NORAD_CAT_ID'].unique()) |
+                set(df['OBJECT2_NORAD_CAT_ID'].unique())
+            )
+            
+            return {
+                'status': 'success',
+                'risk_level': risk_level,
+                'min_distance': float(min_distance),
+                'past_approaches': int(past_approaches),
+                'future_approaches': int(future_approaches),
+                'tracked_objects': int(tracked_objects)
+            }
+            
         except requests.exceptions.RequestException as e:
-            print(f"Error fetching via satcat with decay_date/notnull: {e}")
-        
-        # As a last resort, get the database schema to check available tables and columns
-        try:
-            print("Getting database schema to identify correct tables and columns...")
-            query_url = f"{self.BASE_URL}/basicspacedata/modeldef"
-            response = self.session.get(query_url)
-            if response.status_code == 200:
-                print("Successfully retrieved schema. Available models:")
-                try:
-                    schema = response.json()
-                    for model in schema:
-                        if isinstance(model, dict) and "model" in model:
-                            model_name = model.get("model", "")
-                            if "decay" in model_name.lower() or "reentry" in model_name.lower():
-                                print(f"Found relevant model: {model_name}")
-                                if "fields" in model:
-                                    fields = [f.get("field", "") for f in model.get("fields", [])]
-                                    date_fields = [f for f in fields if "date" in f.lower() or "decay" in f.lower()]
-                                    print(f"  Relevant date fields: {date_fields}")
-                except Exception as e:
-                    print(f"Error parsing schema: {e}")
-            else:
-                print(f"Failed to retrieve schema: {response.status_code}")
+            if "401" in str(e) or "Unauthorized" in str(e):
+                self.authenticated = False
+                return {'status': 'error', 'error': 'Session expired. Please authenticate again.'}
+            return {'status': 'error', 'error': str(e)}
         except Exception as e:
-            print(f"Error retrieving schema: {e}")
-        
-        # If all attempts failed, return an empty DataFrame with detailed error
-        print(f"All decay data endpoints failed. Attempted: {attempted_endpoints}")
-        print("This may be due to API changes or your account not having access to decay data.")
-        print("Please check your Space-Track.org credentials and permissions.")
-        return pd.DataFrame()
-            
-    def get_conjunction_data(self, days_back=7, limit=100):
-        """
-        Get conjunction data messages (CDMs) for close approaches
-        
-        Args:
-            days_back: Number of days in the past to retrieve data for
-            limit: Maximum number of results to return
-            
-        Returns:
-            Pandas DataFrame with conjunction data
-        """
-        if not self.authenticated and not self.authenticate():
-            raise ConnectionError("Failed to authenticate with Space-Track.org")
-            
-        # Calculate date range
-        end_date = datetime.now().strftime("%Y-%m-%d")
-        start_date = (datetime.now() - timedelta(days=days_back)).strftime("%Y-%m-%d")
-        
-        # Try all combinations of class, date column, and API path for conjunction data
-        conjunction_classes = [
-            "cdm_public", "cdm", "gp_cdm", "cdm-public", "cdmpublic", "cdmspublic",
-            "conjunction_data", "conjunction", "close_approaches", "close-approach"
-        ]
-        date_columns = ["CDM_TCA", "TCA", "CONJUNCTION_DATE", "CLOSE_APPROACH_DATE", "CREATION_DATE"]
-        path_prefixes = ["basicspacedata", "gp", "operations"]
-        
-        attempted_endpoints = []
-        
-        # First try the standard combinations
-        for path_prefix in path_prefixes:
-            for conj_class in conjunction_classes:
-                for date_column in date_columns:
-                    try:
-                        endpoint_str = f"{path_prefix}/{conj_class}/{date_column}"
-                        attempted_endpoints.append(endpoint_str)
-                        
-                        print(f"Trying conjunction endpoint: {endpoint_str}...")
-                        query_url = f"{self.BASE_URL}/{path_prefix}/query/class/{conj_class}/format/json/{date_column}/>{start_date}/{date_column}/<{end_date}/orderby/{date_column}%20desc/limit/{limit}"
-                        
-                        # Add debug info
-                        print(f"Requesting URL: {query_url}")
-                        
-                        # Make the request with error details
-                        response = self.session.get(query_url)
-                        print(f"Response status: {response.status_code}")
-                        if response.status_code != 200:
-                            print(f"Response text: {response.text[:200]}...")  # First 200 chars
-                            continue  # Try next combination if not 200
-                        
-                        data = response.json()
-                        
-                        # If we get here, the request was successful
-                        print(f"Successfully retrieved response from {endpoint_str}")
-                        
-                        # Validate that we received actual data
-                        if isinstance(data, list) and len(data) > 0:
-                            df = pd.DataFrame(data)
-                            print(f"Got DataFrame with {len(df)} rows and columns: {df.columns.tolist()[:5]}...")
-                            
-                            # Check for any useful columns - more permissive check
-                            useful_column_keywords = ['distance', 'probability', 'tca', 'date', 'time', 'miss', 'approach']
-                            has_useful_columns = any(
-                                any(keyword in col.lower() for keyword in useful_column_keywords)
-                                for col in df.columns
-                            )
-                            
-                            if len(df.columns) >= 3 and has_useful_columns:
-                                print(f"Found valid conjunction data from {endpoint_str}")
-                                return df
-                            else:
-                                print(f"Data from {endpoint_str} doesn't appear to be conjunction data.")
-                                print(f"Columns found: {df.columns.tolist()}")
-                        elif isinstance(data, dict):
-                            # Try to find data in nested structure
-                            print(f"Got dictionary response with keys: {list(data.keys())}")
-                            if 'data' in data and isinstance(data['data'], list) and len(data['data']) > 0:
-                                df = pd.DataFrame(data['data'])
-                                print(f"Found nested data with {len(df)} rows")
-                                
-                                # Same validation as above
-                                useful_column_keywords = ['distance', 'probability', 'tca', 'date', 'time', 'miss', 'approach']
-                                has_useful_columns = any(
-                                    any(keyword in col.lower() for keyword in useful_column_keywords)
-                                    for col in df.columns
-                                )
-                                
-                                if len(df.columns) >= 3 and has_useful_columns:
-                                    print(f"Found valid conjunction data from {endpoint_str} (nested)")
-                                    return df
-                        else:
-                            print(f"Endpoint {endpoint_str} returned empty data or unexpected format")
-                        
-                    except requests.exceptions.RequestException as e:
-                        error_str = str(e)
-                        # Only print full error for non-404/400 errors to reduce noise
-                        if "404" not in error_str and "400" not in error_str:
-                            print(f"Error fetching conjunction data using {endpoint_str}: {e}")
-                        else:
-                            print(f"Endpoint {endpoint_str} not available (404/400)")
-        
-        # Try specially formatted URLs for conjunction data
-        special_urls = [
-            # Try directly accessing CDMs without date filtering
-            f"{self.BASE_URL}/basicspacedata/query/class/cdm/format/json/orderby/CDM_TCA%20desc/limit/{limit}",
-            # Try using a different date format
-            f"{self.BASE_URL}/basicspacedata/query/class/cdm/format/json/TCA/>{start_date}/limit/{limit}",
-            # Try using the satcat with specific filtering
-            f"{self.BASE_URL}/basicspacedata/query/class/satcat/format/json/orderby/TCA%20desc/limit/{limit}"
-        ]
-        
-        for url in special_urls:
-            try:
-                print(f"Trying special URL: {url}")
-                response = self.session.get(url)
-                if response.status_code == 200:
-                    data = response.json()
-                    if isinstance(data, list) and len(data) > 0:
-                        df = pd.DataFrame(data)
-                        print(f"Special URL returned {len(df)} rows")
-                        if len(df.columns) > 3:  # Basic validation
-                            return df
-            except Exception as e:
-                print(f"Error with special URL {url}: {e}")
-        
-        # As a last resort, check the API schema to find the right endpoint
-        try:
-            print("Checking Space-Track API schema for conjunction data endpoints...")
-            schema_url = f"{self.BASE_URL}/basicspacedata/modeldef"
-            response = self.session.get(schema_url)
-            if response.status_code == 200:
-                schema = response.json()
-                found_models = []
-                
-                for model in schema:
-                    if isinstance(model, dict) and "model" in model:
-                        model_name = model.get("model", "")
-                        if any(keyword in model_name.lower() for keyword in ["cdm", "conjunction", "approach"]):
-                            found_models.append(model_name)
-                            print(f"Found potential conjunction model: {model_name}")
-                            # Print fields if available
-                            if "fields" in model:
-                                date_fields = [
-                                    f.get("field") for f in model.get("fields", [])
-                                    if "date" in f.get("field", "").lower() or "time" in f.get("field", "").lower()
-                                ]
-                                if date_fields:
-                                    print(f"  Potential date fields for filtering: {date_fields}")
-                
-                if found_models:
-                    print(f"Based on schema, try these models for conjunction data: {found_models}")
-                else:
-                    print("No conjunction-related models found in the schema")
-                    
-        except Exception as e:
-            print(f"Error checking schema: {e}")
-        
-        # If all attempts fail, inform the user
-        print("All conjunction data endpoints failed.")
-        print(f"Attempted {len(attempted_endpoints)} different combinations.")
-        print("This may be due to API changes or your account not having access to conjunction data.")
-        print("Please check your Space-Track.org credentials and permissions.")
-        return pd.DataFrame()
+            return {'status': 'error', 'error': f'Unexpected error: {str(e)}'}
             
     def get_boxscore_data(self, limit=100):
         """
-        Get the boxscore data (statistics by country)
+        Get boxscore data (satellite statistics by country)
         
         Args:
             limit: Maximum number of results to return
@@ -442,195 +425,165 @@ class SpaceTrackClient:
         Returns:
             Pandas DataFrame with boxscore data
         """
-        if not self.authenticated and not self.authenticate():
-            raise ConnectionError("Failed to authenticate with Space-Track.org")
-            
-        # Try the standard boxscore endpoint
         try:
-            query_url = f"{self.BASE_URL}/basicspacedata/query/class/boxscore/format/json/orderby/COUNTRY/limit/{limit}"
+            if not self.authenticated and not self.authenticate():
+                raise ConnectionError("Failed to authenticate with Space-Track.org")
+            
+            query_url = f"{self.BASE_URL}/basicspacedata/query/class/boxscore/format/json/orderby/COUNTRY%20asc/limit/{limit}"
+            
             response = self.session.get(query_url)
             response.raise_for_status()
             data = response.json()
             
-            # Convert to DataFrame
-            df = pd.DataFrame(data)
-            return df
-        except requests.exceptions.RequestException as e:
-            print(f"Error fetching boxscore data: {e}")
+            if isinstance(data, list):
+                df = pd.DataFrame(data)
+            elif isinstance(data, dict):
+                df = pd.DataFrame([data])
+            else:
+                return pd.DataFrame()
             
-            # Try alternative path
-            try:
-                print("Trying alternative boxscore endpoint...")
-                query_url = f"{self.BASE_URL}/basicspacedata/query/class/satcat/format/json/CURRENT/Y/OBJECT_TYPE/Payload/COUNTRY_OWNER/orderby/COUNTRY_OWNER/limit/{limit}"
-                response = self.session.get(query_url)
-                response.raise_for_status()
-                data = response.json()
-                
-                # Process the data to create boxscore-like data
-                if data:
-                    satellite_df = pd.DataFrame(data)
-                    
-                    # Group by country and count satellites
-                    if 'COUNTRY_OWNER' in satellite_df.columns:
-                        # Create country statistics
-                        country_stats = satellite_df.groupby('COUNTRY_OWNER').size().reset_index()
-                        country_stats.columns = ['COUNTRY', 'PAYLOAD_COUNT']
-                        
-                        # Add other columns to match boxscore format
-                        country_stats['ROCKET_BODY_COUNT'] = 0
-                        country_stats['DEBRIS_COUNT'] = 0
-                        country_stats['TOTAL_COUNT'] = country_stats['PAYLOAD_COUNT']
-                        
-                        return country_stats
-                    
-                # If we couldn't process properly, return empty DataFrame
-                return pd.DataFrame()
-            except requests.exceptions.RequestException as e_alt:
-                print(f"Error fetching alternative boxscore data: {e_alt}")
-                return pd.DataFrame()
+            return df
+            
+        except requests.exceptions.RequestException as e:
+            if "401" in str(e) or "Unauthorized" in str(e):
+                self.authenticated = False
+                raise Exception("Session expired. Please authenticate again.")
+            raise Exception(f"Error fetching boxscore data: {str(e)}")
     
-    def get_satellite_positions(self, tle_data, time_start, time_end, time_step_minutes=10):
+    def get_satellite_positions(self, tle_data, start_date, end_date, time_step_minutes=5):
         """
-        Calculate satellite positions from TLE data at specified time intervals.
-        This requires the SGP4 propagator to calculate positions from TLE data.
+        Calculate satellite positions for a given time period using TLE data
         
         Args:
             tle_data: DataFrame containing TLE data
-            time_start: Start time for trajectory calculation
-            time_end: End time for trajectory calculation
-            time_step_minutes: Time step between trajectory points in minutes
+            start_date: Start date for position calculation
+            end_date: End date for position calculation
+            time_step_minutes: Time step between position calculations in minutes
             
         Returns:
-            DataFrame with satellite position data
+            DataFrame with satellite positions over time
         """
         try:
-            from sgp4.earth_gravity import wgs72
-            from sgp4.io import twoline2rv
-        except ImportError:
-            print("SGP4 library not installed. Install with: pip install sgp4")
-            return pd.DataFrame()
-        
-        if tle_data.empty:
-            return pd.DataFrame()
+            if tle_data.empty:
+                raise ValueError("No TLE data provided")
             
-        # Prepare time range
-        if isinstance(time_start, str):
-            time_start = pd.to_datetime(time_start)
-        if isinstance(time_end, str):
-            time_end = pd.to_datetime(time_end)
+            if 'TLE_LINE1' not in tle_data.columns or 'TLE_LINE2' not in tle_data.columns:
+                raise ValueError("TLE data missing required line1/line2 elements")
             
-        time_range = pd.date_range(start=time_start, end=time_end, freq=f'{time_step_minutes}min')
-        
-        # List to store all trajectory points
-        trajectory_data = []
-        
-        for _, sat_row in tle_data.iterrows():
-            # Default values in case of errors
-            satellite_id = "Unknown"
-            satellite_name = "Unknown"
+            # Convert dates to datetime if they're strings
+            if isinstance(start_date, str):
+                start_date = pd.to_datetime(start_date)
+            if isinstance(end_date, str):
+                end_date = pd.to_datetime(end_date)
             
-            try:
-                # Safely extract TLE lines
-                satellite_id = str(sat_row.get('NORAD_CAT_ID', "Unknown"))
-                satellite_name = str(sat_row.get('OBJECT_NAME', f"Satellite {satellite_id}"))
-                
-                # Make sure we have the required TLE lines
-                if 'TLE_LINE1' not in sat_row or 'TLE_LINE2' not in sat_row:
-                    print(f"Missing TLE data for satellite {satellite_id}")
-                    continue
-                    
-                line1 = str(sat_row['TLE_LINE1'])
-                line2 = str(sat_row['TLE_LINE2'])
-                
-                # Validate TLE lines
-                if not line1 or not line2 or len(line1) < 10 or len(line2) < 10:
-                    print(f"Invalid TLE data for satellite {satellite_id}")
-                    continue
-                
-                # Create satellite object from TLE with proper error handling
+            # Create time points for position calculation
+            time_points = pd.date_range(
+                start=start_date,
+                end=end_date,
+                freq=f'{time_step_minutes}T'
+            )
+            
+            # Get the latest TLE data
+            latest_tle = tle_data.iloc[0]
+            
+            # Initialize lists for position data
+            positions = []
+            
+            # Calculate positions at each time point
+            for t in time_points:
                 try:
-                    satellite = twoline2rv(line1, line2, wgs72)
-                except Exception as tle_error:
-                    print(f"Error creating satellite object for {satellite_id}: {tle_error}")
-                    continue
-                
-                # Calculate position at each time step
-                trajectories_added = 0
-                for timestamp in time_range:
-                    try:
-                        # Convert to SGP4 format time
-                        year = timestamp.year
-                        month = timestamp.month
-                        day = timestamp.day
-                        hour = timestamp.hour
-                        minute = timestamp.minute
-                        second = timestamp.second
-                        
-                        # Get position and velocity
-                        position, velocity = satellite.propagate(
-                            year, month, day, hour, minute, second
-                        )
-                        
-                        # Skip invalid positions
-                        if (position is None or position[0] is None or 
-                            any(pd.isna(p) for p in position) or 
-                            any(isinstance(p, bool) for p in position)):
-                            continue
-                        
-                        # Extract components with safety checks
-                        try:
-                            x, y, z = position
-                            vx, vy, vz = velocity
-                            
-                            # Make sure we got numeric values
-                            if not (isinstance(x, (int, float)) and
-                                   isinstance(y, (int, float)) and
-                                   isinstance(z, (int, float))):
-                                continue
-                            
-                            # Calculate altitude (distance from Earth center - Earth radius)
-                            # Earth radius is approximately 6371 km
-                            altitude = (x**2 + y**2 + z**2)**0.5 - 6371
-                            
-                            # Add data point to results
-                            trajectory_data.append({
-                                'satellite_id': satellite_id,
-                                'object_name': satellite_name,
-                                'timestamp': timestamp,
-                                'x': x * 1000,  # Convert from km to m
-                                'y': y * 1000,
-                                'z': z * 1000,
-                                'velocity_x': vx * 1000,  # Convert from km/s to m/s
-                                'velocity_y': vy * 1000,
-                                'velocity_z': vz * 1000,
-                                'altitude': altitude * 1000  # Convert from km to m
-                            })
-                            trajectories_added += 1
-                        except Exception as pos_error:
-                            # Skip this position if we can't process it
-                            continue
-                    except Exception as time_error:
-                        # Skip this timestamp if propagation fails
-                        continue
-                
-                # Log the number of trajectory points we were able to add
-                if trajectories_added > 0:
-                    print(f"Added {trajectories_added} trajectory points for satellite {satellite_id}")
-                else:
-                    print(f"No valid trajectory points generated for satellite {satellite_id}")
+                    # Calculate position
+                    pos = self._calculate_position(
+                        latest_tle['TLE_LINE1'],
+                        latest_tle['TLE_LINE2'],
+                        t
+                    )
                     
-            except Exception as e:
-                print(f"Error processing satellite {satellite_id}: {e}")
-                continue
-                
-        # Convert to DataFrame
-        trajectory_df = pd.DataFrame(trajectory_data)
-        return trajectory_df
+                    if pos is not None:
+                        positions.append({
+                            'timestamp': t,
+                            'x': pos[0],
+                            'y': pos[1],
+                            'z': pos[2],
+                            'latitude': pos[3],
+                            'longitude': pos[4],
+                            'altitude': pos[5]
+                        })
+                except Exception as e:
+                    print(f"Error calculating position at {t}: {str(e)}")
+                    continue
+            
+            # Convert to DataFrame
+            if positions:
+                return pd.DataFrame(positions)
+            else:
+                return pd.DataFrame(columns=['timestamp', 'x', 'y', 'z', 'latitude', 'longitude', 'altitude'])
+            
+        except Exception as e:
+            print(f"Error calculating satellite positions: {str(e)}")
+            return pd.DataFrame(columns=['timestamp', 'x', 'y', 'z', 'latitude', 'longitude', 'altitude'])
         
     def close(self):
         """Close the session"""
         self.session.close()
         self.authenticated = False
+        self.last_auth_time = None
+
+    def _calculate_position(self, tle_line1, tle_line2, timestamp):
+        """
+        Calculate satellite position at a given timestamp using TLE data
+        
+        Args:
+            tle_line1: First line of TLE data
+            tle_line2: Second line of TLE data
+            timestamp: Time at which to calculate position
+            
+        Returns:
+            Tuple containing (x, y, z, lat, lon, alt) or None if calculation fails
+        """
+        try:
+            from sgp4.earth_gravity import wgs84
+            from sgp4.io import twoline2rv
+            
+            # Create satellite object
+            satellite = twoline2rv(tle_line1, tle_line2, wgs84)
+            
+            # Extract time components
+            year = timestamp.year
+            month = timestamp.month
+            day = timestamp.day
+            hour = timestamp.hour
+            minute = timestamp.minute
+            second = timestamp.second
+            
+            # Calculate position and velocity
+            position, velocity = satellite.propagate(
+                year, month, day,
+                hour, minute, second
+            )
+            
+            if position is None or velocity is None:
+                return None
+            
+            # Convert to geographic coordinates
+            from math import degrees, atan2, sqrt, pi
+            
+            x, y, z = position
+            
+            # Calculate latitude and longitude
+            lat = degrees(atan2(z, sqrt(x*x + y*y)))
+            lon = degrees(atan2(y, x)) % 360
+            if lon > 180:
+                lon -= 360
+            
+            # Calculate altitude (distance from Earth's center minus Earth's radius)
+            alt = sqrt(x*x + y*y + z*z) - 6371  # Earth's mean radius in km
+            
+            return (x, y, z, lat, lon, alt)
+            
+        except Exception as e:
+            print(f"Error in position calculation: {str(e)}")
+            return None
 
 def get_satellite_data(satellite_ids=None, start_date=None, end_date=None, limit=200):
     """
@@ -701,9 +654,9 @@ def get_satellite_data(satellite_ids=None, start_date=None, end_date=None, limit
         # Calculate positions for the given time range
         trajectory_df = client.get_satellite_positions(
             all_tle_data, 
-            time_start=start_date, 
-            time_end=end_date,
-            time_step_minutes=10
+            start_date=start_date, 
+            end_date=end_date,
+            time_step_minutes=5
         )
         
         # Clean up
