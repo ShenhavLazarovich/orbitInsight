@@ -375,7 +375,6 @@ def plot_altitude_profile(df):
     
     return fig
 
-<<<<<<< Updated upstream
 def plot_launch_timeline(catalog_data):
     """Create a launch timeline plot."""
     fig = px.histogram(
@@ -529,7 +528,8 @@ def plot_debris_analysis(boxscore_data):
         names='country',
         title='Debris Distribution by Country'
     )
-=======
+    return fig
+
 def plot_ground_track(df):
     """
     Plot satellite ground track on a world map.
@@ -625,7 +625,6 @@ def plot_ground_track(df):
         margin=dict(l=0, r=0, t=30, b=0)
     )
     
->>>>>>> Stashed changes
     return fig
 
 def plot_2d_trajectory(satellite_data):

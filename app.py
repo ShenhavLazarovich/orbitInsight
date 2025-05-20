@@ -1,5 +1,5 @@
 import streamlit as st
-<<<<<<< Updated upstream
+
 import auth
 import dashboard
 
