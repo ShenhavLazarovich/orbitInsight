@@ -2,6 +2,8 @@ import plotly.express as px
 import plotly.graph_objects as go
 import pandas as pd
 import numpy as np
+import folium
+from datetime import datetime, timedelta
 
 def plot_2d_trajectory(df):
     """
@@ -80,171 +82,60 @@ def plot_2d_trajectory(df):
     
     return fig
 
-def plot_3d_trajectory(df):
-    """
-    Plot 3D trajectory of satellite (X, Y, Z coordinates).
+def plot_3d_trajectory(satellite_data):
+    """Create a 3D plot of satellite trajectory."""
+    fig = go.Figure()
     
-    Args:
-        df: Pandas DataFrame with trajectory data
+    # Add Earth sphere
+    earth_radius = 6371  # km
+    phi = np.linspace(0, 2*np.pi, 100)
+    theta = np.linspace(-np.pi/2, np.pi/2, 100)
+    phi, theta = np.meshgrid(phi, theta)
+    
+    x = earth_radius * np.cos(theta) * np.cos(phi)
+    y = earth_radius * np.cos(theta) * np.sin(phi)
+    z = earth_radius * np.sin(theta)
+    
+    fig.add_trace(go.Surface(
+        x=x, y=y, z=z,
+        opacity=0.3,
+        showscale=False,
+        colorscale='Blues'
+    ))
+    
+    # Add satellite trajectory
+    for _, sat in satellite_data.iterrows():
+        # Calculate trajectory points
+        t = np.linspace(0, 2*np.pi, 100)
+        a = sat['SEMIMAJOR_AXIS']  # km
+        e = sat['ECCENTRICITY']
+        i = np.radians(sat['INCLINATION'])
+        raan = np.radians(sat['RA_OF_ASC_NODE'])
+        w = np.radians(sat['ARG_OF_PERICENTER'])
         
-    Returns:
-        Plotly figure object
-    """
-    # Check if necessary columns exist
-    if not all(col in df.columns for col in ['x', 'y', 'z']):
-        # Create empty figure with message if data is missing
-        fig = go.Figure()
-        fig.update_layout(
-            title="Cannot create 3D trajectory plot: Missing X/Y/Z coordinate data",
-            scene=dict(
-                xaxis_title="X Position",
-                yaxis_title="Y Position",
-                zaxis_title="Z Position"
-            )
-        )
-        return fig
-    
-    # Sort by timestamp if available
-    if 'timestamp' in df.columns:
-        df_sorted = df.sort_values('timestamp')
-    else:
-        df_sorted = df
-    
-    # Create 3D scatter plot with more configuration options
-    fig = go.Figure(data=[
-        go.Scatter3d(
-            x=df_sorted['x'],
-            y=df_sorted['y'],
-            z=df_sorted['z'],
-            mode='lines+markers',
-            marker=dict(
-                size=2,
-                color=list(range(len(df_sorted))),
-                colorscale='Viridis',
-                opacity=0.8,
-                colorbar=dict(
-                    title="Point Sequence",
-                    thickness=20
-                )
-            ),
-            line=dict(
-                color='darkblue',
-                width=1
-            ),
-            name='Trajectory',
-            hoverinfo='text',
-            text=[f"Point {i+1}<br>X: {row['x']:.2f}<br>Y: {row['y']:.2f}<br>Z: {row['z']:.2f}" + 
-                (f"<br>Time: {pd.to_datetime(row['timestamp']).strftime('%Y-%m-%d %H:%M:%S')}" if 'timestamp' in df_sorted.columns else "") 
-                for i, (_, row) in enumerate(df_sorted.iterrows())]
-        )
-    ])
-    
-    # Add start and end points
-    fig.add_trace(
-        go.Scatter3d(
-            x=[df_sorted['x'].iloc[0]],
-            y=[df_sorted['y'].iloc[0]],
-            z=[df_sorted['z'].iloc[0]],
-            mode='markers',
-            marker=dict(size=5, color='green'),
-            name='Start'
-        )
-    )
-    
-    fig.add_trace(
-        go.Scatter3d(
-            x=[df_sorted['x'].iloc[-1]],
-            y=[df_sorted['y'].iloc[-1]],
-            z=[df_sorted['z'].iloc[-1]],
-            mode='markers',
-            marker=dict(size=5, color='red'),
-            name='End'
-        )
-    )
-    
-    # Add alert points if available
-    if 'alert_type' in df.columns:
-        alerts = df_sorted[df_sorted['alert_type'].notna()]
-        if not alerts.empty:
-            fig.add_trace(
-                go.Scatter3d(
-                    x=alerts['x'],
-                    y=alerts['y'],
-                    z=alerts['z'],
-                    mode='markers',
-                    marker=dict(
-                        size=5,
-                        color='yellow',
-                        symbol='diamond',
-                        line=dict(color='black', width=1)
-                    ),
-                    name='Alerts'
-                )
-            )
-    
-    # Create the Earth as a reference sphere
-    if not df_sorted.empty:
-        # Calculate the center of the trajectory
-        if 'altitude' in df_sorted.columns:
-            # Mean distance from Earth center to satellite
-            traj_center = [0, 0, 0]  # Earth center reference
-            earth_radius = 6371000  # Earth radius in meters
-        else:
-            # For non-Earth-centered coordinates, use average of data points
-            traj_center = [df_sorted['x'].mean(), df_sorted['y'].mean(), df_sorted['z'].mean()]
-            earth_radius = 6371000  # Earth radius in meters
-
-        # Create a sphere representing Earth (if the data appears to be in space)
-        # Only add Earth if trajectory is far enough from origin (likely space data)
-        avg_distance = np.sqrt((df_sorted['x'] - traj_center[0])**2 + 
-                            (df_sorted['y'] - traj_center[1])**2 + 
-                            (df_sorted['z'] - traj_center[2])**2).mean()
+        # Calculate position
+        r = a * (1 - e**2) / (1 + e * np.cos(t))
+        x = r * (np.cos(raan) * np.cos(w + t) - np.sin(raan) * np.sin(w + t) * np.cos(i))
+        y = r * (np.sin(raan) * np.cos(w + t) + np.cos(raan) * np.sin(w + t) * np.cos(i))
+        z = r * np.sin(w + t) * np.sin(i)
         
-        if avg_distance > 1000000:  # If average distance is more than 1000 km
-            # Create Earth sphere
-            u, v = np.mgrid[0:2*np.pi:20j, 0:np.pi:10j]
-            x_earth = earth_radius * np.cos(u) * np.sin(v)
-            y_earth = earth_radius * np.sin(u) * np.sin(v)
-            z_earth = earth_radius * np.cos(v)
-            
-            # Add Earth as a semi-transparent surface
-            fig.add_trace(go.Surface(
-                x=x_earth, y=y_earth, z=z_earth,
-                colorscale=[[0, 'rgb(0, 0, 255)'], [1, 'rgb(100, 100, 255)']],
-                opacity=0.3,
-                showscale=False,
-                name='Earth'
-            ))
-
-    # Update layout with more configuration options
+        fig.add_trace(go.Scatter3d(
+            x=x, y=y, z=z,
+            mode='lines',
+            name=sat['OBJECT_NAME'],
+            line=dict(width=2)
+        ))
+    
+    # Update layout
     fig.update_layout(
-        title='3D Satellite Trajectory',
+        title='Satellite Trajectory',
         scene=dict(
-            xaxis_title='X Position (m)',
-            yaxis_title='Y Position (m)',
-            zaxis_title='Z Position (m)',
-            # Ensure equal aspect ratio for better visualization
             aspectmode='data',
-            camera=dict(
-                eye=dict(x=1.5, y=1.5, z=1.5),  # Default camera position
-                up=dict(x=0, y=0, z=1)  # Set "up" direction
-            ),
-            # Add annotations for orientation reference
-            annotations=[
-                dict(x=0, y=0, z=0, text="Earth Center"),
-                dict(x=7000000, y=0, z=0, text="X"),
-                dict(x=0, y=7000000, z=0, text="Y"),
-                dict(x=0, y=0, z=7000000, text="Z")
-            ]
+            xaxis_title='X (km)',
+            yaxis_title='Y (km)',
+            zaxis_title='Z (km)'
         ),
-        margin=dict(l=0, r=0, b=0, t=30),
-        height=700,  # Increase the plot height
-        legend=dict(
-            yanchor="top",
-            y=0.99,
-            xanchor="left",
-            x=0.01
-        )
+        showlegend=True
     )
     
     return fig
@@ -481,5 +372,378 @@ def plot_altitude_profile(df):
             if 'Earth Radius' in annotation.text:
                 annotation.y = earth_radius_display
                 annotation.text = f"Earth Radius ({earth_radius_display:,} {'km' if use_km else 'm'})"
+    
+    return fig
+
+def plot_launch_timeline(catalog_data):
+    """Create a launch timeline plot."""
+    fig = px.histogram(
+        catalog_data,
+        x='launch_date',
+        title='Satellite Launch Timeline',
+        labels={'launch_date': 'Launch Date', 'count': 'Number of Satellites'}
+    )
+    return fig
+
+def plot_country_distribution(catalog_data):
+    """Create a country distribution plot."""
+    fig = px.pie(
+        catalog_data,
+        names='country',
+        title='Satellite Distribution by Country'
+    )
+    return fig
+
+def plot_status_distribution(catalog_data):
+    """Create a status distribution plot."""
+    fig = px.pie(
+        catalog_data,
+        names='status',
+        title='Satellite Status Distribution'
+    )
+    return fig
+
+def plot_launch_sites_map(launch_sites_data):
+    """Create a world map of launch sites."""
+    fig = px.scatter_geo(
+        launch_sites_data,
+        lat='latitude',
+        lon='longitude',
+        hover_name='name',
+        hover_data=['country', 'status', 'launch_count'],
+        title='Launch Sites World Map'
+    )
+    return fig
+
+def plot_launch_activity(launch_sites_data):
+    """Create a launch activity plot."""
+    fig = px.line(
+        launch_sites_data,
+        x='last_launch',
+        y='launch_count',
+        color='name',
+        title='Launch Activity by Site',
+        labels={'last_launch': 'Date', 'launch_count': 'Number of Launches'}
+    )
+    return fig
+
+def plot_launch_sites_by_country(launch_sites_data):
+    """Create a country distribution plot for launch sites."""
+    fig = px.bar(
+        launch_sites_data.groupby('country')['launch_count'].sum().reset_index(),
+        x='country',
+        y='launch_count',
+        title='Launch Activity by Country',
+        labels={'country': 'Country', 'launch_count': 'Total Launches'}
+    )
+    return fig
+
+def plot_decay_timeline(decay_data):
+    """Create a decay timeline plot."""
+    fig = px.histogram(
+        decay_data,
+        x='decay_date',
+        title='Satellite Decay Timeline',
+        labels={'decay_date': 'Decay Date', 'count': 'Number of Decays'}
+    )
+    return fig
+
+def plot_decay_altitude_distribution(decay_data):
+    """Create an altitude distribution plot for decay events."""
+    fig = px.histogram(
+        decay_data,
+        x='pre_decay_altitude',
+        title='Pre-Decay Altitude Distribution',
+        labels={'pre_decay_altitude': 'Altitude (km)', 'count': 'Number of Decays'}
+    )
+    return fig
+
+def plot_decay_by_country(decay_data):
+    """Create a country distribution plot for decay events."""
+    fig = px.pie(
+        decay_data,
+        names='country',
+        title='Decay Events by Country'
+    )
+    return fig
+
+def plot_conjunction_timeline(conjunction_data):
+    """Create a conjunction timeline plot."""
+    fig = px.histogram(
+        conjunction_data,
+        x='time_of_closest_approach',
+        title='Conjunction Events Timeline',
+        labels={'time_of_closest_approach': 'Time', 'count': 'Number of Events'}
+    )
+    return fig
+
+def plot_conjunction_risk_distribution(conjunction_data):
+    """Create a risk distribution plot for conjunction events."""
+    fig = px.histogram(
+        conjunction_data,
+        x='probability',
+        title='Conjunction Risk Distribution',
+        labels={'probability': 'Collision Probability', 'count': 'Number of Events'}
+    )
+    return fig
+
+def plot_conjunction_distance_analysis(conjunction_data):
+    """Create a miss distance analysis plot."""
+    fig = px.scatter(
+        conjunction_data,
+        x='miss_distance',
+        y='probability',
+        title='Miss Distance vs. Collision Probability',
+        labels={'miss_distance': 'Miss Distance (km)', 'probability': 'Collision Probability'}
+    )
+    return fig
+
+def plot_object_distribution(boxscore_data):
+    """Create an object distribution plot."""
+    fig = px.bar(
+        boxscore_data,
+        x='country',
+        y=['active_satellites', 'debris', 'payloads', 'rocket_bodies'],
+        title='Space Object Distribution by Country',
+        labels={'value': 'Number of Objects', 'variable': 'Object Type'}
+    )
+    return fig
+
+def plot_launch_activity_by_country(boxscore_data):
+    """Create a launch activity plot by country."""
+    fig = px.bar(
+        boxscore_data,
+        x='country',
+        y='launches',
+        title='Launch Activity by Country',
+        labels={'launches': 'Number of Launches'}
+    )
+    return fig
+
+def plot_debris_analysis(boxscore_data):
+    """Create a debris analysis plot."""
+    fig = px.pie(
+        boxscore_data,
+        values='debris',
+        names='country',
+        title='Debris Distribution by Country'
+    )
+    return fig
+
+def plot_ground_track(df):
+    """
+    Plot satellite ground track on a world map.
+    
+    Args:
+        df: Pandas DataFrame with trajectory data containing latitude and longitude
+        
+    Returns:
+        Plotly figure object
+    """
+    # Convert cartesian coordinates to lat/lon if needed
+    if 'latitude' not in df.columns or 'longitude' not in df.columns:
+        if all(col in df.columns for col in ['x', 'y', 'z']):
+            # Convert XYZ to lat/lon
+            r = np.sqrt(df['x']**2 + df['y']**2 + df['z']**2)
+            df['latitude'] = np.arcsin(df['z'] / r) * 180 / np.pi
+            df['longitude'] = np.arctan2(df['y'], df['x']) * 180 / np.pi
+        else:
+            # Create empty figure with message if data is missing
+            fig = go.Figure()
+            fig.update_layout(
+                title="Cannot create ground track plot: Missing coordinate data",
+                mapbox=dict(style="open-street-map"),
+            )
+            return fig
+    
+    # Sort by timestamp if available
+    if 'timestamp' in df.columns:
+        df_sorted = df.sort_values('timestamp')
+    else:
+        df_sorted = df
+    
+    # Create the ground track plot
+    fig = go.Figure()
+    
+    # Add the ground track line
+    fig.add_trace(
+        go.Scattermapbox(
+            lat=df_sorted['latitude'],
+            lon=df_sorted['longitude'],
+            mode='lines+markers',
+            marker=dict(
+                size=4,
+                color=list(range(len(df_sorted))),
+                colorscale='Viridis',
+                opacity=0.8,
+                colorbar=dict(
+                    title="Time Sequence",
+                    thickness=20
+                )
+            ),
+            line=dict(
+                color='darkblue',
+                width=2
+            ),
+            name='Ground Track'
+        )
+    )
+    
+    # Add start and end points
+    fig.add_trace(
+        go.Scattermapbox(
+            lat=[df_sorted['latitude'].iloc[0]],
+            lon=[df_sorted['longitude'].iloc[0]],
+            mode='markers',
+            marker=dict(size=10, color='green'),
+            name='Start'
+        )
+    )
+    
+    fig.add_trace(
+        go.Scattermapbox(
+            lat=[df_sorted['latitude'].iloc[-1]],
+            lon=[df_sorted['longitude'].iloc[-1]],
+            mode='markers',
+            marker=dict(size=10, color='red'),
+            name='End'
+        )
+    )
+    
+    # Update layout with map configuration
+    fig.update_layout(
+        mapbox=dict(
+            style="open-street-map",
+            center=dict(
+                lat=df_sorted['latitude'].mean(),
+                lon=df_sorted['longitude'].mean()
+            ),
+            zoom=1
+        ),
+        showlegend=True,
+        height=600,
+        margin=dict(l=0, r=0, t=30, b=0)
+    )
+    
+    return fig
+
+def plot_2d_trajectory(satellite_data):
+    """Create a 2D map of satellite trajectory."""
+    # Create base map
+    m = folium.Map()
+    
+    for _, sat in satellite_data.iterrows():
+        # Calculate ground track points
+        t = np.linspace(0, 2*np.pi, 100)
+        a = sat['SEMIMAJOR_AXIS']  # km
+        e = sat['ECCENTRICITY']
+        i = np.radians(sat['INCLINATION'])
+        raan = np.radians(sat['RA_OF_ASC_NODE'])
+        w = np.radians(sat['ARG_OF_PERICENTER'])
+        
+        # Calculate position
+        r = a * (1 - e**2) / (1 + e * np.cos(t))
+        x = r * (np.cos(raan) * np.cos(w + t) - np.sin(raan) * np.sin(w + t) * np.cos(i))
+        y = r * (np.sin(raan) * np.cos(w + t) + np.cos(raan) * np.sin(w + t) * np.cos(i))
+        z = r * np.sin(w + t) * np.sin(i)
+        
+        # Convert to lat/lon
+        lat = np.degrees(np.arcsin(z / r))
+        lon = np.degrees(np.arctan2(y, x))
+        
+        # Create ground track line
+        points = list(zip(lat, lon))
+        folium.PolyLine(
+            points,
+            color='red',
+            weight=2,
+            opacity=0.8,
+            popup=sat['OBJECT_NAME']
+        ).add_to(m)
+        
+        # Add marker at current position
+        folium.Marker(
+            [lat[0], lon[0]],
+            popup=f"{sat['OBJECT_NAME']}<br>NORAD ID: {sat['NORAD_ID']}",
+            tooltip=sat['OBJECT_NAME']
+        ).add_to(m)
+    
+    return m
+
+def plot_altitude_distribution(satellite_data):
+    """Create a histogram of satellite altitudes."""
+    fig = go.Figure()
+    
+    fig.add_trace(go.Histogram(
+        x=satellite_data['APOGEE'],
+        name='Apogee',
+        opacity=0.7
+    ))
+    
+    fig.add_trace(go.Histogram(
+        x=satellite_data['PERIGEE'],
+        name='Perigee',
+        opacity=0.7
+    ))
+    
+    fig.update_layout(
+        title='Satellite Altitude Distribution',
+        xaxis_title='Altitude (km)',
+        yaxis_title='Number of Satellites',
+        barmode='overlay'
+    )
+    
+    return fig
+
+def plot_conjunction_risk(satellite_data):
+    """Create a scatter plot of conjunction risk."""
+    fig = go.Figure()
+    
+    fig.add_trace(go.Scatter(
+        x=satellite_data['TCA'],
+        y=satellite_data['MISS_DISTANCE'],
+        mode='markers',
+        marker=dict(
+            size=10,
+            color=satellite_data['RISK_LEVEL'].map({
+                'HIGH': 'red',
+                'MEDIUM': 'orange',
+                'LOW': 'green'
+            }),
+            opacity=0.7
+        ),
+        text=satellite_data['OBJECT_NAME'],
+        hoverinfo='text'
+    ))
+    
+    fig.update_layout(
+        title='Conjunction Risk Analysis',
+        xaxis_title='Time of Closest Approach',
+        yaxis_title='Miss Distance (km)',
+        showlegend=False
+    )
+    
+    return fig
+
+def plot_launch_statistics(launch_data):
+    """Create a bar chart of launch statistics."""
+    fig = go.Figure()
+    
+    # Group by launch site
+    site_stats = launch_data.groupby('SITE_NAME').size().reset_index(name='count')
+    
+    fig.add_trace(go.Bar(
+        x=site_stats['SITE_NAME'],
+        y=site_stats['count'],
+        text=site_stats['count'],
+        textposition='auto'
+    ))
+    
+    fig.update_layout(
+        title='Launch Statistics by Site',
+        xaxis_title='Launch Site',
+        yaxis_title='Number of Launches',
+        xaxis_tickangle=-45
+    )
     
     return fig

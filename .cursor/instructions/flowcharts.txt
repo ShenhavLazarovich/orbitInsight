@@ -1,0 +1,32 @@
+Flowchart: User Journey
+The following flowchart illustrates the typical user interaction flow inside OrbitInsights. It helps clarify the expected behavior and the necessary interface structure, particularly for onboarding and analytics tracking:
+
+pgsql
+Copy
+Edit
+User Interaction
+      ↓
+User Login/Sign-Up
+      ↓
+Dashboard Access
+      ↓
+Visualization
+      ↓
+  Filter Data?
+   ↙      ↘
+Yes         No
+ ↓           ↓
+Data Filtering  → 
+      ↓
+Report Generation
+      ↓
+Feedback and Support
+Commentary:
+
+The flowchart ensures clarity on how users transition from login to data engagement.
+
+Developers should trigger telemetry events at each node (e.g., login success, filter applied, report generated).
+
+The branching logic for "Filter Data?" highlights the need for optional yet accessible filters, which must not obstruct the user journey.
+
+Support and feedback should be easily accessible from all major states—especially after data use or export.

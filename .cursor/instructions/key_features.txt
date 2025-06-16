@@ -1,0 +1,47 @@
+Core Features
+Data Visualization
+
+Interactive 2D and 3D satellite trajectories (fetched live from space-track.org)
+
+Altitude segmentation and orbital class overviews
+
+Conjunction risk analysis (highlighting last 30 days of high- and low-risk events)
+
+Satellite Lookup
+
+Search by NORAD ID or satellite name (real-time from space-track.org)
+
+Detailed satellite page with orbital parameters, visual plots, and recent events
+
+Dynamic Filtering
+
+By date, altitude, country of origin, and risk level
+
+Applied globally or on specific tables/graphs
+
+Reports and Exports
+
+Downloadable summaries for filtered queries
+
+Optional CSV and PDF export formats
+
+Engagement and Feedback
+
+Feedback button integrated into UI
+
+Public GitHub for feature requests and suggestions
+
+Access
+
+User provides their own Space-Track.org credentials to access all features and data.
+
+Analytics and Tracking
+
+Track sign-ins by country (via Space-Track credentials)
+
+Frequency of data queries and report downloads
+
+Click tracking on website interface
+
+All satellite and event data is fetched live from the space-track.org API. No local database is used for satellite, trajectory, or event data. All analytics and visualizations reflect the most up-to-date information available from the API.
+

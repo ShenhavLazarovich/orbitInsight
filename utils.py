@@ -1,5 +1,6 @@
 import pandas as pd
 import io
+import streamlit as st
 
 def convert_df_to_csv(df):
     """
@@ -110,3 +111,18 @@ def convert_cartesian_to_spherical(x, y, z):
     phi = np.arctan2(y, x)  # Azimuthal angle (longitude)
     
     return r, theta, phi
+
+def replace_replit_running_icon():
+    """Replace Replit running icon with custom icon."""
+    pass
+
+def add_custom_css():
+    """Add custom CSS to the app."""
+    st.markdown("""
+        <style>
+        .stApp {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        </style>
+    """, unsafe_allow_html=True)

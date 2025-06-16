@@ -3,6 +3,7 @@ import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 from scipy import stats
+from datetime import datetime, timedelta
 
 def calculate_basic_stats(df):
     """
@@ -194,3 +195,86 @@ def detect_anomalies(df, parameter, threshold=3.0):
     )
     
     return anomaly_df, fig
+
+def analyze_trajectory(trajectory_data):
+    """Analyze satellite trajectory data."""
+    # Calculate basic orbital parameters
+    avg_altitude = trajectory_data['altitude'].mean()
+    
+    # Calculate orbital period (assuming circular orbit)
+    # Using Kepler's Third Law: T = 2π * sqrt(a³/μ)
+    # where a is semi-major axis and μ is Earth's gravitational parameter
+    earth_radius = 6371  # km
+    mu = 398600.4418  # km³/s²
+    a = avg_altitude + earth_radius
+    orbital_period = 2 * np.pi * np.sqrt(a**3 / mu) / 60  # Convert to minutes
+    
+    # Calculate eccentricity (simplified)
+    eccentricity = 0.0  # Placeholder for circular orbit
+    
+    # Calculate inclination (simplified)
+    inclination = 0.0  # Placeholder
+    
+    return {
+        'avg_altitude': avg_altitude,
+        'orbital_period': orbital_period,
+        'eccentricity': eccentricity,
+        'inclination': inclination
+    }
+
+def analyze_catalog(catalog_data):
+    """Analyze satellite catalog data."""
+    analysis = {
+        'total_satellites': len(catalog_data),
+        'active_satellites': len(catalog_data[catalog_data['status'] == 'Active']),
+        'countries': catalog_data['country'].nunique(),
+        'launch_years': catalog_data['launch_date'].dt.year.nunique(),
+        'avg_altitude': catalog_data['altitude'].mean(),
+        'avg_inclination': catalog_data['inclination'].mean()
+    }
+    return analysis
+
+def analyze_launch_sites(launch_sites_data):
+    """Analyze launch sites data."""
+    analysis = {
+        'total_sites': len(launch_sites_data),
+        'active_sites': len(launch_sites_data[launch_sites_data['status'] == 'Active']),
+        'total_launches': launch_sites_data['launch_count'].sum(),
+        'countries': launch_sites_data['country'].nunique(),
+        'avg_launches_per_site': launch_sites_data['launch_count'].mean()
+    }
+    return analysis
+
+def analyze_decay_events(decay_data):
+    """Analyze decay events data."""
+    analysis = {
+        'total_decays': len(decay_data),
+        'avg_altitude': decay_data['pre_decay_altitude'].mean(),
+        'avg_prediction_accuracy': decay_data['prediction_accuracy'].mean(),
+        'countries': decay_data['country'].nunique(),
+        'recent_decays': len(decay_data[decay_data['decay_date'] > datetime.now() - timedelta(days=30)])
+    }
+    return analysis
+
+def analyze_conjunction_events(conjunction_data):
+    """Analyze conjunction events data."""
+    analysis = {
+        'total_events': len(conjunction_data),
+        'high_risk_events': len(conjunction_data[conjunction_data['probability'] > 0.01]),
+        'avg_miss_distance': conjunction_data['miss_distance'].mean(),
+        'avg_probability': conjunction_data['probability'].mean(),
+        'recent_events': len(conjunction_data[conjunction_data['time_of_closest_approach'] > datetime.now() - timedelta(days=7)])
+    }
+    return analysis
+
+def analyze_boxscore(boxscore_data):
+    """Analyze boxscore data."""
+    analysis = {
+        'total_objects': boxscore_data['total_objects'].sum(),
+        'active_satellites': boxscore_data['active_satellites'].sum(),
+        'debris_objects': boxscore_data['debris'].sum(),
+        'total_launches': boxscore_data['launches'].sum(),
+        'countries': len(boxscore_data),
+        'avg_objects_per_country': boxscore_data['total_objects'].mean()
+    }
+    return analysis
